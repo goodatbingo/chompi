@@ -95,7 +95,9 @@ $(TEMPO_OVERLAY): $(addprefix $(TEMPO_GEN)/,$(TEMPO_VOIDPTR)) shim/tempo/hardwar
 	@sed -i '$$ s/,$$//' $@
 	@printf ']}\n' >> $@
 tempo_INC += -ivfsoverlay $(abspath $(TEMPO_OVERLAY))
+# Every TEMPO object compiles with the overlay flag, so all of them wait for it.
 $(foreach s,$(TEMPO_APP),$(OBJ)/tempo/$(notdir $(s)).o): $(TEMPO_OVERLAY)
+$(tempo_LIB): | $(TEMPO_OVERLAY)
 
 objs = $(foreach s,$(2),$(OBJ)/$(1)/$(notdir $(s)).o) $($(1)_LIB)
 

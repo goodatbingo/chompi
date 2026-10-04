@@ -1,0 +1,87 @@
+# Builds Tape Bench (playground/) from the firmware source, tests it, and
+# publishes it with the factory SD-card content to GitHub Pages on every push
+# to main.
+# Pull requests run the build and tests only.
+
+name: Tape Bench (GitHub Pages)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "playground/**"
+      - "firmware/chompi-tape/code/**"
+      - "firmware/chompi-wave/code/**"
+      - "firmware/chompi-tempo/code/**"
+      - "firmware/card-profiles/**"
+      - ".github/workflows/pages.yml"
+  pull_request:
+    paths:
+      - "playground/**"
+      - "firmware/chompi-tape/code/**"
+      - "firmware/chompi-wave/code/**"
+      - "firmware/chompi-tempo/code/**"
+      - "firmware/card-profiles/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: mymindstorm/setup-emsdk@v14
+        with:
+          # Pinned so the build matches the checked-in web/*.wasm.
+          version: 6.0.11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Build the engines from the firmware source
+        working-directory: playground
+        run: make -B -j4
+
+      - name: Check the committed wasm is up to date
+        run: |
+          git diff --exit-code -- 'playground/web/*.wasm' || {
+            echo "::error::playground/web/*.wasm is out of date. Run make in playground/ and commit the result."
+            exit 1
+          }
+
+      - name: Smoke test
+        working-directory: playground
+        run: node test/smoke.mjs
+
+      - name: Assemble the site with the factory card files
+        run: |
+          mkdir -p _site
+          cp playground/web/index.html playground/web/engine-worklet.js playground/web/*.wasm _site/
+          python3 playground/card.py copy _site
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,427 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>TAPE FX Playground</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Syne:wght@600;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a single instrument panel. Source and transport on top, the two
+   TAPE FX pages (LOFI, FILTER) as side-by-side modules, the scope underneath. */
+:root {
+  --bg: #eceef1;
+  --panel: #f8f9fb;
+  --ink: #1b1f27;
+  --muted: #5d6573;
+  --line: #d3d7de;
+  --well: #e2e5ea;
+  --accent: #6a2cf5;
+  --on-accent: #ffffff;
+  --scope-bg: #151820;
+  --scope-grid: #2a2f3b;
+  --scope-dry: #7f8797;
+  --scope-wet: #ffb347;
+  --font-display: "Syne", "Avenir Next", "Segoe UI", sans-serif;
+  --font-body: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #101217; --panel: #191c23; --ink: #e9ebf0; --muted: #9aa2b1;
+    --line: #2b303b; --well: #232731; --accent: #a67bff; --on-accent: #120a24;
+    --scope-bg: #0b0d11; --scope-grid: #222631; --scope-dry: #6b7383; --scope-wet: #ffb347;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #101217; --panel: #191c23; --ink: #e9ebf0; --muted: #9aa2b1;
+  --line: #2b303b; --well: #232731; --accent: #a67bff; --on-accent: #120a24;
+  --scope-bg: #0b0d11; --scope-grid: #222631; --scope-dry: #6b7383; --scope-wet: #ffb347;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font: 15px/1.55 var(--font-body);
+  padding-inline: 16px;
+  padding-block: 28px 48px;
+}
+.wrap { max-width: 980px; margin: 0 auto; display: grid; gap: 20px; }
+
+header { display: grid; gap: 6px; }
+.eyebrow {
+  font: 500 12px var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted);
+}
+h1 {
+  font: 800 clamp(30px, 6vw, 48px)/1.02 var(--font-display);
+  letter-spacing: -.01em; margin: 0; text-wrap: balance;
+}
+.lede { margin: 0; max-width: 64ch; color: var(--muted); }
+.lede code, footer code { font-family: var(--font-mono); font-size: .9em; color: var(--ink); }
+
+.bar {
+  display: flex; flex-wrap: wrap; align-items: end; gap: 12px 16px;
+  padding: 16px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+}
+.field { display: grid; gap: 4px; min-width: 0; }
+.field-label { font: 500 11px var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+select, .file-btn, button {
+  font: 500 14px var(--font-body); color: var(--ink);
+  background: var(--well); border: 1px solid var(--line); border-radius: 7px;
+  padding: 8px 12px; min-height: 40px; cursor: pointer;
+}
+select { max-width: 100%; }
+button:focus-visible, select:focus-visible, input:focus-visible, .file-btn:focus-within {
+  outline: 2px solid var(--accent); outline-offset: 2px;
+}
+.file-btn { display: inline-flex; align-items: center; }
+.file-btn input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.spacer { flex: 1 1 0; }
+#play { background: var(--accent); color: var(--on-accent); border-color: transparent; min-width: 104px; font-weight: 600; }
+.ab { display: inline-flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
+.ab button { border: 0; border-radius: 0; background: var(--well); color: var(--muted); }
+.ab button[aria-pressed="true"] { background: var(--ink); color: var(--panel); }
+#status { font: 13px var(--font-mono); color: var(--muted); flex-basis: 100%; min-height: 1.4em; }
+
+.pages { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
+.page {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+  padding: 18px; display: grid; gap: 18px; align-content: start;
+}
+.page-head { display: flex; align-items: center; gap: 10px; }
+.page h2 { font: 800 20px var(--font-display); letter-spacing: .04em; margin: 0; }
+.page-head .hint { margin-left: auto; font: 12px var(--font-mono); color: var(--muted); }
+.led {
+  width: 14px; height: 14px; border-radius: 50%; flex: none;
+  background: var(--led, #888); box-shadow: 0 0 10px 1px var(--led, transparent);
+  border: 1px solid rgba(0,0,0,.25);
+}
+
+.ctl { display: grid; gap: 6px; }
+.ctl-top { display: flex; align-items: baseline; gap: 10px; }
+.ctl-top label { font-weight: 600; }
+.ctl-top output { margin-left: auto; font: 500 14px var(--font-mono); font-variant-numeric: tabular-nums; }
+.ctl-src { font: 12px var(--font-mono); color: var(--muted); overflow-wrap: anywhere; }
+input[type="range"] {
+  -webkit-appearance: none; appearance: none; width: 100%; height: 28px; background: transparent; margin: 0; cursor: pointer;
+}
+input[type="range"]::-webkit-slider-runnable-track { height: 6px; border-radius: 3px; background: linear-gradient(90deg, var(--fill, var(--accent)) var(--pct, 0%), var(--well) var(--pct, 0%)); }
+input[type="range"]::-moz-range-track { height: 6px; border-radius: 3px; background: var(--well); }
+input[type="range"]::-moz-range-progress { height: 6px; border-radius: 3px; background: var(--fill, var(--accent)); }
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 20px; height: 20px; margin-top: -7px; border-radius: 50%;
+  background: var(--panel); border: 2px solid var(--ink);
+}
+input[type="range"]::-moz-range-thumb { width: 16px; height: 16px; border-radius: 50%; background: var(--panel); border: 2px solid var(--ink); }
+
+.scope-card { background: var(--scope-bg); border-radius: 10px; padding: 12px; display: grid; gap: 8px; }
+canvas { width: 100%; height: 180px; display: block; max-width: 100%; }
+.legend { display: flex; flex-wrap: wrap; gap: 16px; font: 12px var(--font-mono); color: var(--scope-dry); }
+.legend span::before { content: ""; display: inline-block; width: 18px; height: 2px; vertical-align: middle; margin-right: 6px; background: currentColor; }
+.legend .wet { color: var(--scope-wet); }
+
+#wand { justify-self: start; }
+footer { color: var(--muted); font-size: 14px; display: grid; gap: 8px; max-width: 70ch; }
+footer h3 { font: 600 14px var(--font-body); color: var(--ink); margin: 8px 0 0; }
+footer p { margin: 0; }
+@media (prefers-reduced-motion: reduce) { .led { box-shadow: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">CHOMPI · TAPE 2.0 firmware · running in your browser</div>
+    <h1>TAPE FX Playground</h1>
+    <p class="lede">The filter, saturation and wow/flutter here are the firmware's own C++ (<code>DJFilter.h</code>, <code>Warble.h</code>, DaisySP's <code>SoftClip</code>) compiled to WebAssembly at 48&nbsp;kHz. Edit the firmware, run <code>make</code>, reload, and hear the change before you flash.</p>
+  </header>
+
+  <section class="bar" aria-label="Source and transport">
+    <div class="field">
+      <label class="field-label" for="source">Source</label>
+      <select id="source">
+        <option value="drums">Drum loop (synthesised)</option>
+        <option value="boot">Boot tone (TAPE's default sample)</option>
+        <option value="file" disabled>Your file</option>
+      </select>
+    </div>
+    <label class="file-btn">Load audio file…<input id="file" type="file" accept="audio/*"></label>
+    <div class="spacer"></div>
+    <div class="field">
+      <span class="field-label" id="ab-label">Compare</span>
+      <div class="ab" role="group" aria-labelledby="ab-label">
+        <button id="fx-on" type="button" aria-pressed="true">FX</button>
+        <button id="fx-off" type="button" aria-pressed="false">Bypass</button>
+      </div>
+    </div>
+    <button id="play" type="button">Play</button>
+    <div id="status" role="status">Press Play to start the audio engine.</div>
+  </section>
+
+  <div class="pages">
+    <section class="page" aria-labelledby="lofi-h">
+      <div class="page-head"><span class="led" id="lofi-led"></span><h2 id="lofi-h">LOFI</h2><span class="hint">FX page 2</span></div>
+      <div class="ctl">
+        <div class="ctl-top"><label for="saturate">Saturate</label><output id="saturate-out" for="saturate">0.00</output></div>
+        <input id="saturate" type="range" min="0" max="1" step="0.001" value="0" data-led="lofi">
+        <div class="ctl-src">FX knob · DSPEngine::SetSaturate</div>
+      </div>
+      <div class="ctl">
+        <div class="ctl-top"><label for="warble">Warble</label><output id="warble-out" for="warble">0.00</output></div>
+        <input id="warble" type="range" min="0" max="1" step="0.001" value="0">
+        <div class="ctl-src">Encoder 3 · DSPEngine::SetWarble</div>
+      </div>
+    </section>
+
+    <section class="page" aria-labelledby="filter-h">
+      <div class="page-head"><span class="led" id="filter-led"></span><h2 id="filter-h">FILTER</h2><span class="hint">FX page 3</span></div>
+      <div class="ctl">
+        <div class="ctl-top"><label for="filter">Filter</label><output id="filter-out" for="filter">0.50</output></div>
+        <input id="filter" type="range" min="0" max="1" step="0.001" value="0.5" data-led="filter">
+        <div class="ctl-src">FX knob · DSPEngine::SetFilter · low-pass ← 0.5 → high-pass</div>
+      </div>
+      <div class="ctl">
+        <div class="ctl-top"><label for="resonance">Resonance</label><output id="resonance-out" for="resonance">0.00</output></div>
+        <input id="resonance" type="range" min="0" max="1" step="0.001" value="0">
+        <div class="ctl-src">Encoder 3 · DSPEngine::SetFilterResonance</div>
+      </div>
+    </section>
+  </div>
+
+  <button id="wand" type="button">Magic wand reset</button>
+
+  <section class="scope-card" aria-label="Spectrum">
+    <canvas id="scope" width="960" height="180" aria-label="Live spectrum of the dry input and the processed output"></canvas>
+    <div class="legend"><span>dry input</span><span class="wet">TAPE FX output</span><span>log frequency, 30 Hz – 20 kHz</span></div>
+  </section>
+
+  <footer>
+    <h3>What runs here</h3>
+    <p>The page loads <code>tape_fx.wasm</code> into an AudioWorklet. Per sample it runs the first loop of <code>DSPEngine::ApplyFx()</code>: DC block, DJ filter, soft-clip saturation with gain compensation, then warble. Knob values go through the firmware's own mappings, and the LEDs use the panel's colour fades. Delay and reverb are not included yet.</p>
+    <h3>Try a firmware tweak</h3>
+    <p>Change something in <code>firmware/chompi-tape/code/src/Warble.h</code> (for example the <code>880.f</code> depth), then run <code>make</code> in <code>playground/</code> and reload this page.</p>
+  </footer>
+</div>
+
+<script>
+(() => {
+  const SR = 48000; // Warble.h hard-codes 1/48000, so the context must run at 48 kHz.
+  const $ = (id) => document.getElementById(id);
+  const status = (t) => { $('status').textContent = t; };
+
+  // Panel LED colours from NormalPage.h, faded with color_triple_xfade().
+  const LED = {
+    lofi:   [[1, .95, .05], [1, .6, .24], [1, 0, 0]],      // yellow → orange → red
+    filter: [[.58, .05, 1], [1, .36, .62], [1, 1, 1]],      // purple → pink → white
+  };
+  const xfade3 = ([a, b, c], t) => {
+    const [p, q, u] = t < .5 ? [a, b, t * 2] : [b, c, (t - .5) * 2];
+    return p.map((v, i) => Math.round(255 * (v + (q[i] - v) * u)));
+  };
+
+  let ctx = null, node = null, analyserDry = null, analyserWet = null, srcNode = null, inputBus = null;
+  let playing = false;
+  const buffers = {};
+  let userBuffer = null;
+
+  // ---------- built-in sources ----------
+  // DSPEngine::FillDefaultSample(): detuned triangles, decaying after 0.5 s.
+  function bootTone() {
+    const len = 3 * SR, buf = new AudioBuffer({ numberOfChannels: 2, length: len, sampleRate: SR });
+    const L = buf.getChannelData(0), R = buf.getChannelData(1);
+    const incR = .5 * 523.2511 * (2 * Math.PI / SR), incL = incR * 1.01;
+    let rl = 1, rr = 0;
+    const end = 4 * SR - 2000;
+    for (let i = 0; i < len; i++) {
+      const env = i > 24000 ? Math.exp(-0.00007195578 * (i - 24000)) : 1;
+      const gain = i < 2000 ? i / 2000 : i > end ? 1 - (i - end) / 2000 : 1;
+      rl = (rl + incL) % (2 * Math.PI); rr = (rr + incR) % (2 * Math.PI);
+      L[i] = gain * .4 * env * (2 * Math.abs(rl / (2 * Math.PI) - .5) - 1);
+      R[i] = gain * .4 * env * (2 * Math.abs(rr / (2 * Math.PI) - .5) - 1);
+    }
+    return buf;
+  }
+
+  // Two bars of kick, snare, hats and a bass line at 96 BPM.
+  function drumLoop() {
+    const bpm = 96, step = 60 / bpm / 4, steps = 32;
+    const len = Math.round(step * steps * SR);
+    const buf = new AudioBuffer({ numberOfChannels: 2, length: len, sampleRate: SR });
+    const L = buf.getChannelData(0), R = buf.getChannelData(1);
+    let seed = 7;
+    const rnd = () => ((seed = (seed * 1103515245 + 12345) % 2147483648) / 1073741824) - 1;
+    const add = (start, dur, fn, pan = 0) => {
+      const s0 = Math.round(start * SR), n = Math.round(dur * SR);
+      for (let i = 0; i < n && s0 + i < len; i++) {
+        const v = fn(i / SR);
+        L[s0 + i] += v * (1 - pan); R[s0 + i] += v * (1 + pan);
+      }
+    };
+    const kick = [0, 6, 10, 16, 22, 26];
+    const snare = [4, 12, 20, 28];
+    const bass = [[0, 41.2], [3, 41.2], [6, 49], [10, 55], [16, 41.2], [19, 41.2], [22, 36.7], [26, 49]];
+    kick.forEach((s) => add(s * step, .45, (t) => .8 * Math.sin(2 * Math.PI * (45 * t + 90 * (1 - Math.exp(-t * 30)) / 30)) * Math.exp(-t * 7)));
+    snare.forEach((s) => add(s * step, .25, (t) => (.35 * rnd() + .25 * Math.sin(2 * Math.PI * 190 * t)) * Math.exp(-t * 18)));
+    for (let s = 0; s < steps; s += 2) {
+      let prev = 0;
+      add(s * step, .06, (t) => { const n = rnd(), v = n - prev; prev = n; return .12 * v * Math.exp(-t * 60); }, s % 4 ? .3 : -.3);
+    }
+    bass.forEach(([s, hz]) => add(s * step, step * 2.5, (t) => {
+      const ph = (hz * t) % 1;
+      return .28 * (2 * Math.abs(2 * ph - 1) - 1) * Math.min(1, t * 200) * Math.exp(-t * 3);
+    }));
+    return buf;
+  }
+
+  function sourceBuffer() {
+    const key = $('source').value;
+    if (key === 'file') return userBuffer;
+    return buffers[key] || (buffers[key] = key === 'boot' ? bootTone() : drumLoop());
+  }
+
+  // ---------- engine ----------
+  async function startEngine() {
+    ctx = new AudioContext({ sampleRate: SR });
+    if (ctx.sampleRate !== SR) status(`Note: browser runs at ${ctx.sampleRate} Hz, the firmware at 48 kHz. Warble timing will be off.`);
+    const [wasm] = await Promise.all([
+      fetch('tape_fx.wasm').then((r) => { if (!r.ok) throw new Error('tape_fx.wasm not found. Run make in playground/.'); return r.arrayBuffer(); }),
+      ctx.audioWorklet.addModule('tape-fx-worklet.js'),
+    ]);
+    node = new AudioWorkletNode(ctx, 'tape-fx', {
+      numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [2],
+      channelCount: 2, channelCountMode: 'explicit', processorOptions: { wasm },
+    });
+    await new Promise((resolve, reject) => {
+      node.port.onmessage = (e) => {
+        if (e.data.type === 'ready') resolve();
+        if (e.data.type === 'error') reject(new Error(e.data.message));
+      };
+    });
+    inputBus = ctx.createGain();
+    analyserDry = ctx.createAnalyser(); analyserWet = ctx.createAnalyser();
+    for (const a of [analyserDry, analyserWet]) { a.fftSize = 4096; a.smoothingTimeConstant = .8; }
+    inputBus.connect(node); inputBus.connect(analyserDry);
+    node.connect(analyserWet); node.connect(ctx.destination);
+    for (const id of ['saturate', 'warble', 'filter', 'resonance']) send(id);
+    node.port.postMessage({ type: 'bypass', value: $('fx-off').getAttribute('aria-pressed') === 'true' });
+  }
+
+  function startSource() {
+    const buf = sourceBuffer();
+    if (!buf) { status('Load an audio file first.'); return false; }
+    srcNode = new AudioBufferSourceNode(ctx, { buffer: buf, loop: true });
+    srcNode.connect(inputBus);
+    srcNode.start();
+    return true;
+  }
+  function stopSource() { if (srcNode) { srcNode.stop(); srcNode.disconnect(); srcNode = null; } }
+
+  $('play').addEventListener('click', async () => {
+    try {
+      if (!ctx) { status('Loading the firmware DSP…'); await startEngine(); }
+      await ctx.resume();
+      if (playing) { stopSource(); playing = false; }
+      else { playing = startSource(); }
+      $('play').textContent = playing ? 'Stop' : 'Play';
+      if (playing) status(`Running tape_fx.wasm at ${ctx.sampleRate / 1000} kHz.`);
+    } catch (err) {
+      status(`Could not start audio: ${err.message}`);
+    }
+  });
+
+  $('source').addEventListener('change', () => { if (playing) { stopSource(); playing = startSource(); } });
+
+  $('file').addEventListener('change', async (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
+    try {
+      const tmp = ctx || new OfflineAudioContext(2, 1, SR);
+      userBuffer = await tmp.decodeAudioData(await f.arrayBuffer());
+      const opt = $('source').querySelector('option[value="file"]');
+      opt.disabled = false; opt.textContent = f.name;
+      $('source').value = 'file';
+      status(`Loaded ${f.name}. Press Play.`);
+      if (playing) { stopSource(); playing = startSource(); }
+    } catch (err) {
+      status(`Could not decode ${f.name}. Try a WAV or MP3.`);
+    }
+  });
+
+  // ---------- controls ----------
+  const DEFAULTS = { saturate: 0, warble: 0, filter: .5, resonance: 0 }; // ui.h enc_defaults + MenuPage reset
+
+  function paint(id) {
+    const el = $(id), v = +el.value;
+    $(id + '-out').value = v.toFixed(2);
+    el.style.setProperty('--pct', (v * 100) + '%');
+    const led = el.dataset.led;
+    if (led) {
+      const [r, g, b] = xfade3(LED[led], v);
+      const c = `rgb(${r} ${g} ${b})`;
+      $(led + '-led').style.setProperty('--led', c);
+      el.style.setProperty('--fill', c);
+    }
+  }
+  function send(id) { if (node) node.port.postMessage({ type: id, value: +$(id).value }); }
+  for (const id of Object.keys(DEFAULTS)) {
+    $(id).addEventListener('input', () => { paint(id); send(id); });
+    paint(id);
+  }
+  $('wand').addEventListener('click', () => {
+    for (const [id, v] of Object.entries(DEFAULTS)) { $(id).value = v; paint(id); send(id); }
+  });
+
+  const setBypass = (on) => {
+    $('fx-on').setAttribute('aria-pressed', String(!on));
+    $('fx-off').setAttribute('aria-pressed', String(on));
+    if (node) node.port.postMessage({ type: 'bypass', value: on });
+  };
+  $('fx-on').addEventListener('click', () => setBypass(false));
+  $('fx-off').addEventListener('click', () => setBypass(true));
+
+  // ---------- spectrum ----------
+  const canvas = $('scope'), g = canvas.getContext('2d');
+  const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  let dryBins, wetBins;
+  function draw() {
+    const dpr = window.devicePixelRatio || 1;
+    const w = Math.round(canvas.clientWidth * dpr), h = Math.round(canvas.clientHeight * dpr);
+    if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
+    g.fillStyle = css('--scope-bg'); g.fillRect(0, 0, w, h);
+    const fMin = 30, fMax = 20000, x = (f) => w * Math.log(f / fMin) / Math.log(fMax / fMin);
+    g.strokeStyle = css('--scope-grid'); g.lineWidth = 1;
+    for (const f of [100, 1000, 10000]) { g.beginPath(); g.moveTo(x(f), 0); g.lineTo(x(f), h); g.stroke(); }
+    g.fillStyle = css('--scope-dry'); g.font = `${11 * dpr}px ${css('--font-mono')}`;
+    for (const [f, t] of [[100, '100'], [1000, '1k'], [10000, '10k']]) g.fillText(t, x(f) + 4 * dpr, h - 6 * dpr);
+    if (analyserDry) {
+      dryBins = dryBins || new Float32Array(analyserDry.frequencyBinCount);
+      wetBins = wetBins || new Float32Array(analyserWet.frequencyBinCount);
+      analyserDry.getFloatFrequencyData(dryBins);
+      analyserWet.getFloatFrequencyData(wetBins);
+      const trace = (bins, color, width) => {
+        g.strokeStyle = color; g.lineWidth = width * dpr; g.beginPath();
+        const binHz = ctx.sampleRate / analyserDry.fftSize;
+        let started = false;
+        for (let px = 0; px <= w; px += 2) {
+          const f = fMin * Math.pow(fMax / fMin, px / w);
+          const db = bins[Math.min(bins.length - 1, Math.round(f / binHz))];
+          const y = h * (1 - (Math.max(-110, Math.min(-10, db)) + 110) / 100);
+          started ? g.lineTo(px, y) : (g.moveTo(px, y), started = true);
+        }
+        g.stroke();
+      };
+      trace(dryBins, css('--scope-dry'), 1);
+      trace(wetBins, css('--scope-wet'), 1.75);
+    }
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+</script>
+</body>
+</html>

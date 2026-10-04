@@ -7,3 +7,6 @@ Icon?
 # Editor state
 .cortex-debug.*.state.json
 .vs/
+
+# Playground build scratch
+playground/node_modules/

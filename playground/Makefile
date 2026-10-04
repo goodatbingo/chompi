@@ -33,7 +33,9 @@ $(1)_FF   := $$($(1)_CODE)/libs/libDaisy/Middlewares/Third_Party/FatFs/src
 $(1)_INC  := -Ishim -I$$($(1)_CODE)/src -I$$($(1)_SP) -I$$($(1)_SP)/Utility \
              -I$$($(1)_FF) -I$$($(1)_CODE)/libs/libDaisy/src/sys \
              -I$$($(1)_CODE)/libs/libDaisy/src -I$$($(1)_CODE)/libs/coreJSON/source/include
-$(1)_LIBSRC := $$(shell find $$($(1)_SP) -name '*.cpp') shim/ramdisk.cpp
+# Sorted: find's order depends on the filesystem, and link order changes the
+# output bytes, which CI compares against the committed wasm.
+$(1)_LIBSRC := $$(sort $$(shell find $$($(1)_SP) -name '*.cpp')) shim/ramdisk.cpp
 $(1)_LIB  := $$(foreach s,$$($(1)_LIBSRC),$(OBJ)/$(1)/lib/$$(notdir $$(s)).o) \
              $(OBJ)/$(1)/lib/ff.o $(OBJ)/$(1)/lib/unicode.o $(OBJ)/$(1)/lib/core_json.o
 $(OBJ)/$(1)/lib/core_json.o: $$($(1)_CODE)/libs/coreJSON/source/core_json.c

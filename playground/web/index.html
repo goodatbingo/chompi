@@ -8,8 +8,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Syne:wght@600;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
-/* Layout: a single instrument panel. Source and transport on top, the two
-   TAPE FX pages (LOFI, FILTER) as side-by-side modules, the scope underneath. */
+/* Layout: an instrument bench. Engine tabs and transport on top, the active
+   firmware's panel as modules below, a shared keyboard and scope at the foot. */
 :root {
   --bg: #eceef1;
   --panel: #f8f9fb;
@@ -19,9 +19,14 @@
   --well: #e2e5ea;
   --accent: #6a2cf5;
   --on-accent: #ffffff;
+  --on: #1f8a5b;
+  --rec: #d23a3a;
+  --key-white: #ffffff;
+  --key-black: #22262f;
+  --key-down: #c9b6ff;
   --scope-bg: #151820;
   --scope-grid: #2a2f3b;
-  --scope-dry: #7f8797;
+  --scope-text: #7f8797;
   --scope-wet: #ffb347;
   --font-display: "Syne", "Avenir Next", "Segoe UI", sans-serif;
   --font-body: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
@@ -32,364 +37,649 @@
   :root:not([data-theme="light"]) {
     --bg: #101217; --panel: #191c23; --ink: #e9ebf0; --muted: #9aa2b1;
     --line: #2b303b; --well: #232731; --accent: #a67bff; --on-accent: #120a24;
-    --scope-bg: #0b0d11; --scope-grid: #222631; --scope-dry: #6b7383; --scope-wet: #ffb347;
+    --on: #3ccf8e; --rec: #ff6b6b;
+    --key-white: #d9dce3; --key-black: #0b0d11; --key-down: #a67bff;
+    --scope-bg: #0b0d11; --scope-grid: #222631; --scope-text: #6b7383; --scope-wet: #ffb347;
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
   --bg: #101217; --panel: #191c23; --ink: #e9ebf0; --muted: #9aa2b1;
   --line: #2b303b; --well: #232731; --accent: #a67bff; --on-accent: #120a24;
-  --scope-bg: #0b0d11; --scope-grid: #222631; --scope-dry: #6b7383; --scope-wet: #ffb347;
+  --on: #3ccf8e; --rec: #ff6b6b;
+  --key-white: #d9dce3; --key-black: #0b0d11; --key-down: #a67bff;
+  --scope-bg: #0b0d11; --scope-grid: #222631; --scope-text: #6b7383; --scope-wet: #ffb347;
   color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
 html, body { margin: 0; }
-body {
-  background: var(--bg);
-  color: var(--ink);
-  font: 15px/1.55 var(--font-body);
-  padding-inline: 16px;
-  padding-block: 28px 48px;
-}
-.wrap { max-width: 980px; margin: 0 auto; display: grid; gap: 20px; }
-
+body { background: var(--bg); color: var(--ink); font: 15px/1.55 var(--font-body); padding-inline: 16px; padding-block: 28px 48px; }
+.wrap { max-width: 1040px; margin: 0 auto; display: grid; gap: 20px; }
 header { display: grid; gap: 6px; }
-.eyebrow {
-  font: 500 12px var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted);
-}
-h1 {
-  font: 800 clamp(30px, 6vw, 48px)/1.02 var(--font-display);
-  letter-spacing: -.01em; margin: 0; text-wrap: balance;
-}
-.lede { margin: 0; max-width: 64ch; color: var(--muted); }
-.lede code, footer code { font-family: var(--font-mono); font-size: .9em; color: var(--ink); }
+.eyebrow, .field-label, .mod-hint, .ctl-src, #status, .legend { font-family: var(--font-mono); }
+.eyebrow { font-size: 12px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+h1 { font: 800 clamp(30px, 6vw, 48px)/1.02 var(--font-display); letter-spacing: -.01em; margin: 0; text-wrap: balance; }
+.lede { margin: 0; max-width: 66ch; color: var(--muted); }
+code { font-family: var(--font-mono); font-size: .9em; color: var(--ink); }
 
-.bar {
-  display: flex; flex-wrap: wrap; align-items: end; gap: 12px 16px;
-  padding: 16px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
-}
+.tabs { display: flex; flex-wrap: wrap; gap: 8px; }
+.tab { font: 800 18px var(--font-display); letter-spacing: .05em; padding: 10px 18px; border-radius: 9px; border: 1px solid var(--line); background: var(--panel); color: var(--muted); cursor: pointer; display: grid; text-align: left; gap: 2px; min-width: 150px; }
+.tab small { font: 400 12px var(--font-body); letter-spacing: 0; }
+.tab[aria-selected="true"] { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+
+.bar { display: flex; flex-wrap: wrap; align-items: end; gap: 12px 16px; padding: 16px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
 .field { display: grid; gap: 4px; min-width: 0; }
-.field-label { font: 500 11px var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
-select, .file-btn, button {
-  font: 500 14px var(--font-body); color: var(--ink);
-  background: var(--well); border: 1px solid var(--line); border-radius: 7px;
-  padding: 8px 12px; min-height: 40px; cursor: pointer;
-}
-select { max-width: 100%; }
-button:focus-visible, select:focus-visible, input:focus-visible, .file-btn:focus-within {
-  outline: 2px solid var(--accent); outline-offset: 2px;
-}
-.file-btn { display: inline-flex; align-items: center; }
+.field-label { font-size: 11px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+select, button, .file-btn { font: 500 14px var(--font-body); color: var(--ink); background: var(--well); border: 1px solid var(--line); border-radius: 7px; padding: 8px 12px; min-height: 40px; cursor: pointer; }
+button:disabled { opacity: .5; cursor: default; }
+button:focus-visible, select:focus-visible, input:focus-visible, .file-btn:focus-within, .tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.file-btn { display: inline-flex; align-items: center; position: relative; }
 .file-btn input { position: absolute; width: 1px; height: 1px; opacity: 0; }
 .spacer { flex: 1 1 0; }
-#play { background: var(--accent); color: var(--on-accent); border-color: transparent; min-width: 104px; font-weight: 600; }
-.ab { display: inline-flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
-.ab button { border: 0; border-radius: 0; background: var(--well); color: var(--muted); }
-.ab button[aria-pressed="true"] { background: var(--ink); color: var(--panel); }
-#status { font: 13px var(--font-mono); color: var(--muted); flex-basis: 100%; min-height: 1.4em; }
+#power { background: var(--accent); color: var(--on-accent); border-color: transparent; font-weight: 600; min-width: 132px; }
+#status { font-size: 13px; color: var(--muted); flex-basis: 100%; min-height: 1.4em; }
+progress { width: 100%; height: 6px; accent-color: var(--accent); }
 
-.pages { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
-.page {
-  background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
-  padding: 18px; display: grid; gap: 18px; align-content: start;
-}
-.page-head { display: flex; align-items: center; gap: 10px; }
-.page h2 { font: 800 20px var(--font-display); letter-spacing: .04em; margin: 0; }
-.page-head .hint { margin-left: auto; font: 12px var(--font-mono); color: var(--muted); }
-.led {
-  width: 14px; height: 14px; border-radius: 50%; flex: none;
-  background: var(--led, #888); box-shadow: 0 0 10px 1px var(--led, transparent);
-  border: 1px solid rgba(0,0,0,.25);
-}
-
-.ctl { display: grid; gap: 6px; }
+.panel { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 16px; }
+.panel-empty { grid-column: 1 / -1; background: var(--panel); border: 1px dashed var(--line); border-radius: 10px; padding: 20px; color: var(--muted); margin: 0; }
+.mod { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: grid; gap: 14px; align-content: start; min-width: 0; }
+.mod-head { display: flex; align-items: baseline; gap: 10px; }
+.mod h2 { font: 800 17px var(--font-display); letter-spacing: .05em; margin: 0; }
+.mod-hint { margin-left: auto; font-size: 12px; color: var(--muted); }
+.ctl { display: grid; gap: 4px; }
 .ctl-top { display: flex; align-items: baseline; gap: 10px; }
 .ctl-top label { font-weight: 600; }
 .ctl-top output { margin-left: auto; font: 500 14px var(--font-mono); font-variant-numeric: tabular-nums; }
-.ctl-src { font: 12px var(--font-mono); color: var(--muted); overflow-wrap: anywhere; }
-input[type="range"] {
-  -webkit-appearance: none; appearance: none; width: 100%; height: 28px; background: transparent; margin: 0; cursor: pointer;
-}
-input[type="range"]::-webkit-slider-runnable-track { height: 6px; border-radius: 3px; background: linear-gradient(90deg, var(--fill, var(--accent)) var(--pct, 0%), var(--well) var(--pct, 0%)); }
+.ctl-src { font-size: 12px; color: var(--muted); overflow-wrap: anywhere; margin: 0; }
+input[type="range"] { -webkit-appearance: none; appearance: none; width: 100%; height: 26px; background: transparent; margin: 0; cursor: pointer; }
+input[type="range"]::-webkit-slider-runnable-track { height: 6px; border-radius: 3px; background: linear-gradient(90deg, var(--accent) var(--pct, 0%), var(--well) var(--pct, 0%)); }
 input[type="range"]::-moz-range-track { height: 6px; border-radius: 3px; background: var(--well); }
-input[type="range"]::-moz-range-progress { height: 6px; border-radius: 3px; background: var(--fill, var(--accent)); }
-input[type="range"]::-webkit-slider-thumb {
-  -webkit-appearance: none; width: 20px; height: 20px; margin-top: -7px; border-radius: 50%;
-  background: var(--panel); border: 2px solid var(--ink);
-}
+input[type="range"]::-moz-range-progress { height: 6px; border-radius: 3px; background: var(--accent); }
+input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; margin-top: -7px; border-radius: 50%; background: var(--panel); border: 2px solid var(--ink); }
 input[type="range"]::-moz-range-thumb { width: 16px; height: 16px; border-radius: 50%; background: var(--panel); border: 2px solid var(--ink); }
 
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { min-height: 34px; min-width: 40px; padding: 4px 10px; font: 500 13px var(--font-mono); }
+.chip[aria-pressed="true"] { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+.chip.loading { opacity: .6; }
+.btn-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.hold { touch-action: none; }
+.hold[data-state="on"] { background: var(--on); color: var(--on-accent); border-color: transparent; }
+.hold.rec[data-state="on"] { background: var(--rec); }
+.lamp { display: inline-flex; align-items: center; gap: 6px; font: 12px var(--font-mono); color: var(--muted); }
+.lamp::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--well); border: 1px solid var(--line); }
+.lamp[data-on="true"]::before { background: var(--on); border-color: transparent; }
+.lamp.rec[data-on="true"]::before { background: var(--rec); }
+
+.kbd-card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: grid; gap: 10px; }
+.kbd-head { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; }
+.kbd-head .ctl-src { margin-left: auto; }
+.keys-scroll { overflow-x: auto; }
+.keys { position: relative; height: 150px; min-width: 520px; display: flex; user-select: none; touch-action: none; }
+.key { flex: 1; border: 1px solid var(--line); border-radius: 0 0 6px 6px; background: var(--key-white); position: relative; display: flex; align-items: end; justify-content: center; padding-bottom: 6px; font: 11px var(--font-mono); color: var(--muted); }
+.key.black { position: absolute; top: 0; height: 92px; z-index: 1; background: var(--key-black); border-color: var(--key-black); }
+.key.down { background: var(--key-down); }
+
 .scope-card { background: var(--scope-bg); border-radius: 10px; padding: 12px; display: grid; gap: 8px; }
-canvas { width: 100%; height: 180px; display: block; max-width: 100%; }
-.legend { display: flex; flex-wrap: wrap; gap: 16px; font: 12px var(--font-mono); color: var(--scope-dry); }
-.legend span::before { content: ""; display: inline-block; width: 18px; height: 2px; vertical-align: middle; margin-right: 6px; background: currentColor; }
+canvas { width: 100%; height: 150px; display: block; max-width: 100%; }
+.legend { display: flex; flex-wrap: wrap; gap: 16px; font-size: 12px; color: var(--scope-text); }
 .legend .wet { color: var(--scope-wet); }
 
-#wand { justify-self: start; }
-footer { color: var(--muted); font-size: 14px; display: grid; gap: 8px; max-width: 70ch; }
+footer { color: var(--muted); font-size: 14px; display: grid; gap: 8px; max-width: 72ch; }
 footer h3 { font: 600 14px var(--font-body); color: var(--ink); margin: 8px 0 0; }
 footer p { margin: 0; }
-@media (prefers-reduced-motion: reduce) { .led { box-shadow: none; } }
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
-    <div class="eyebrow">TAPE 2.0 firmware DSP · running in your browser</div>
+    <div class="eyebrow">TAPE 2.0 · WAVE 1.0 · TEMPO 1.0 firmware · running in your browser</div>
     <h1>Tape Bench</h1>
-    <p class="lede">The filter, saturation and wow/flutter here are the firmware's own C++ (<code>DJFilter.h</code>, <code>Warble.h</code>, DaisySP's <code>SoftClip</code>) compiled to WebAssembly at 48&nbsp;kHz. Edit the firmware, run <code>make</code>, reload, and hear the change before you flash.</p>
+    <p class="lede">Each engine here is the firmware's own audio code, compiled unmodified to WebAssembly and fed the factory SD card. Edit the firmware, run <code>make</code>, reload, and hear the change before you flash.</p>
   </header>
 
-  <section class="bar" aria-label="Source and transport">
+  <div class="tabs" role="tablist" aria-label="Firmware">
+    <button class="tab" role="tab" id="tab-tape" type="button" aria-selected="true" aria-controls="panel">TAPE<small>7-voice sampler and tape looper</small></button>
+    <button class="tab" role="tab" id="tab-wave" type="button" aria-selected="false" aria-controls="panel">WAVE<small>Wavetable synth</small></button>
+    <button class="tab" role="tab" id="tab-tempo" type="button" aria-selected="false" aria-controls="panel">TEMPO<small>Pattern sampler and slicer</small></button>
+  </div>
+
+  <section class="bar" aria-label="Audio">
+    <button id="power" type="button">Start audio</button>
     <div class="field">
-      <label class="field-label" for="source">Source</label>
-      <select id="source">
-        <option value="drums">Drum loop (synthesised)</option>
-        <option value="boot">Boot tone (TAPE's default sample)</option>
-        <option value="file" disabled>Your file</option>
+      <label class="field-label" for="input">Audio in</label>
+      <select id="input">
+        <option value="none">Nothing</option>
+        <option value="file" disabled>Your file (load one)</option>
+        <option value="mic">Microphone</option>
       </select>
     </div>
     <label class="file-btn">Load audio file…<input id="file" type="file" accept="audio/*"></label>
     <div class="spacer"></div>
-    <div class="field">
-      <span class="field-label" id="ab-label">Compare</span>
-      <div class="ab" role="group" aria-labelledby="ab-label">
-        <button id="fx-on" type="button" aria-pressed="true">FX</button>
-        <button id="fx-off" type="button" aria-pressed="false">Bypass</button>
-      </div>
+    <div class="field" style="min-width:160px">
+      <label class="field-label" for="volume">Volume</label>
+      <input id="volume" type="range" min="0" max="1" step="0.01" value="0.8">
     </div>
-    <button id="play" type="button">Play</button>
-    <div id="status" role="status">Press Play to start the audio engine.</div>
+    <div id="status" role="status">Press Start audio. The engine boots with its factory card.</div>
+    <progress id="progress" max="1" value="0" hidden></progress>
   </section>
 
-  <div class="pages">
-    <section class="page" aria-labelledby="lofi-h">
-      <div class="page-head"><span class="led" id="lofi-led"></span><h2 id="lofi-h">LOFI</h2><span class="hint">FX page 2</span></div>
-      <div class="ctl">
-        <div class="ctl-top"><label for="saturate">Saturate</label><output id="saturate-out" for="saturate">0.00</output></div>
-        <input id="saturate" type="range" min="0" max="1" step="0.001" value="0" data-led="lofi">
-        <div class="ctl-src">FX knob · DSPEngine::SetSaturate</div>
-      </div>
-      <div class="ctl">
-        <div class="ctl-top"><label for="warble">Warble</label><output id="warble-out" for="warble">0.00</output></div>
-        <input id="warble" type="range" min="0" max="1" step="0.001" value="0">
-        <div class="ctl-src">Encoder 3 · DSPEngine::SetWarble</div>
-      </div>
-    </section>
-
-    <section class="page" aria-labelledby="filter-h">
-      <div class="page-head"><span class="led" id="filter-led"></span><h2 id="filter-h">FILTER</h2><span class="hint">FX page 3</span></div>
-      <div class="ctl">
-        <div class="ctl-top"><label for="filter">Filter</label><output id="filter-out" for="filter">0.50</output></div>
-        <input id="filter" type="range" min="0" max="1" step="0.001" value="0.5" data-led="filter">
-        <div class="ctl-src">FX knob · DSPEngine::SetFilter · low-pass ← 0.5 → high-pass</div>
-      </div>
-      <div class="ctl">
-        <div class="ctl-top"><label for="resonance">Resonance</label><output id="resonance-out" for="resonance">0.00</output></div>
-        <input id="resonance" type="range" min="0" max="1" step="0.001" value="0">
-        <div class="ctl-src">Encoder 3 · DSPEngine::SetFilterResonance</div>
-      </div>
-    </section>
+  <div id="panel" class="panel" role="tabpanel" aria-labelledby="tab-tape">
+    <p class="panel-empty">The TAPE controls appear here once the engine has booted: sample slots, pitch and envelope, the magic/lofi/filter FX, and the tape looper.</p>
   </div>
 
-  <button id="wand" type="button">Magic wand reset</button>
+  <section class="kbd-card" aria-label="Keyboard">
+    <div class="kbd-head">
+      <div class="btn-row">
+        <button id="oct-down" type="button" class="chip">Oct −</button>
+        <button id="oct-up" type="button" class="chip">Oct +</button>
+      </div>
+      <span class="lamp" id="midi-lamp">MIDI in</span>
+      <span class="ctl-src">Computer keys: A W S E D F T G Y H U J K · Z / X shift octave</span>
+    </div>
+    <div class="keys-scroll"><div class="keys" id="keys"></div></div>
+  </section>
 
   <section class="scope-card" aria-label="Spectrum">
-    <canvas id="scope" width="960" height="180" aria-label="Live spectrum of the dry input and the processed output"></canvas>
-    <div class="legend"><span>dry input</span><span class="wet">TAPE FX output</span><span>log frequency, 30 Hz – 20 kHz</span></div>
+    <canvas id="scope" width="960" height="150" aria-label="Live spectrum of the engine output"></canvas>
+    <div class="legend"><span class="wet">engine output</span><span>log frequency, 30 Hz – 20 kHz</span></div>
   </section>
 
   <footer>
     <h3>What runs here</h3>
-    <p>The page loads <code>tape_fx.wasm</code> into an AudioWorklet. Per sample it runs the first loop of <code>DSPEngine::ApplyFx()</code>: DC block, DJ filter, soft-clip saturation with gain compensation, then warble. Knob values go through the firmware's own mappings, and the LEDs use the panel's colour fades. Delay and reverb are not included yet.</p>
-    <h3>About</h3>
-    <p>An unofficial community tool built from the MIT-licensed open-source firmware release. It is not affiliated with or endorsed by the hardware's makers.</p>
+    <p>TAPE runs <code>DSPEngine.h</code>: seven streaming voices, the varispeed looper, filter, saturation, warble, delay and reverb. WAVE runs <code>subtractiveEngine.h</code> with its wavetable loader. TEMPO runs the chromatic and slice engines, the arpeggiator and its clock, and the granular delay. A small stand-in layer replaces the board: an SD card in memory using the real FatFs, the system timer, and 48-frame audio blocks as on the hardware. The panel and LEDs are not emulated; the controls here call the same engine functions the panel code calls.</p>
     <h3>Try a firmware tweak</h3>
     <p>Change something in <code>firmware/chompi-tape/code/src/Warble.h</code> (for example the <code>880.f</code> depth), then run <code>make</code> in <code>playground/</code> and reload this page.</p>
+    <h3>About</h3>
+    <p>An unofficial community tool built from the MIT-licensed open-source firmware release. It is not affiliated with or endorsed by the hardware's makers.</p>
   </footer>
 </div>
 
 <script>
 (() => {
-  const SR = 48000; // Warble.h hard-codes 1/48000, so the context must run at 48 kHz.
+  const SR = 48000;
   const $ = (id) => document.getElementById(id);
+  const el = (tag, props = {}, ...kids) => { const n = Object.assign(document.createElement(tag), props); n.append(...kids); return n; };
   const status = (t) => { $('status').textContent = t; };
 
-  // Panel LED colours from NormalPage.h, faded with color_triple_xfade().
-  const LED = {
-    lofi:   [[1, .95, .05], [1, .6, .24], [1, 0, 0]],      // yellow → orange → red
-    filter: [[.58, .05, 1], [1, .36, .62], [1, 1, 1]],      // purple → pink → white
-  };
-  const xfade3 = ([a, b, c], t) => {
-    const [p, q, u] = t < .5 ? [a, b, t * 2] : [b, c, (t - .5) * 2];
-    return p.map((v, i) => Math.round(255 * (v + (q[i] - v) * u)));
-  };
+  // ---------------------------------------------------------------- engine host
+  let ctx = null, master = null, analyser = null, inputBus = null;
+  let node = null, engineName = 'tape', manifest = null, booting = null;
+  let callId = 0;
+  const pending = new Map();
 
-  let ctx = null, node = null, analyserDry = null, analyserWet = null, srcNode = null, inputBus = null;
-  let playing = false;
-  const buffers = {};
-  let userBuffer = null;
-
-  // ---------- built-in sources ----------
-  // DSPEngine::FillDefaultSample(): detuned triangles, decaying after 0.5 s.
-  function bootTone() {
-    const len = 3 * SR, buf = new AudioBuffer({ numberOfChannels: 2, length: len, sampleRate: SR });
-    const L = buf.getChannelData(0), R = buf.getChannelData(1);
-    const incR = .5 * 523.2511 * (2 * Math.PI / SR), incL = incR * 1.01;
-    let rl = 1, rr = 0;
-    const end = 4 * SR - 2000;
-    for (let i = 0; i < len; i++) {
-      const env = i > 24000 ? Math.exp(-0.00007195578 * (i - 24000)) : 1;
-      const gain = i < 2000 ? i / 2000 : i > end ? 1 - (i - end) / 2000 : 1;
-      rl = (rl + incL) % (2 * Math.PI); rr = (rr + incR) % (2 * Math.PI);
-      L[i] = gain * .4 * env * (2 * Math.abs(rl / (2 * Math.PI) - .5) - 1);
-      R[i] = gain * .4 * env * (2 * Math.abs(rr / (2 * Math.PI) - .5) - 1);
-    }
-    return buf;
+  function call(fn, ...args) { if (node) node.port.postMessage({ type: 'call', fn, args }); }
+  function request(msg, transfer) {
+    return new Promise((resolve, reject) => {
+      if (!node) return reject(new Error('Audio is not running.'));
+      const id = ++callId; pending.set(id, { resolve, reject });
+      node.port.postMessage({ ...msg, id }, transfer || []);
+    });
   }
+  const ask = (fn, ...args) => request({ type: 'call', fn, args });
+  const writeCard = (files) => request({ type: 'card', files }, files.map((f) => f.data));
 
-  // Two bars of kick, snare, hats and a bass line at 96 BPM.
-  function drumLoop() {
-    const bpm = 96, step = 60 / bpm / 4, steps = 32;
-    const len = Math.round(step * steps * SR);
-    const buf = new AudioBuffer({ numberOfChannels: 2, length: len, sampleRate: SR });
-    const L = buf.getChannelData(0), R = buf.getChannelData(1);
-    let seed = 7;
-    const rnd = () => ((seed = (seed * 1103515245 + 12345) % 2147483648) / 1073741824) - 1;
-    const add = (start, dur, fn, pan = 0) => {
-      const s0 = Math.round(start * SR), n = Math.round(dur * SR);
-      for (let i = 0; i < n && s0 + i < len; i++) {
-        const v = fn(i / SR);
-        L[s0 + i] += v * (1 - pan); R[s0 + i] += v * (1 + pan);
+  async function fetchCard(engine, paths, label) {
+    const list = manifest[engine].filter((f) => paths.includes(f.path));
+    const total = list.reduce((a, f) => a + f.size, 0);
+    const prog = $('progress');
+    let done = 0;
+    prog.hidden = false; prog.value = 0;
+    try {
+      const files = [];
+      for (const f of list) {
+        const r = await fetch(`card/${engine}/${f.path}`);
+        if (!r.ok) throw new Error(`card/${engine}/${f.path} is missing. Run make in playground/.`);
+        files.push({ path: f.path, data: await r.arrayBuffer() });
+        done += f.size; prog.value = done / total;
+        status(`${label}: ${(done / 1e6).toFixed(1)} of ${(total / 1e6).toFixed(1)} MB`);
       }
-    };
-    const kick = [0, 6, 10, 16, 22, 26];
-    const snare = [4, 12, 20, 28];
-    const bass = [[0, 41.2], [3, 41.2], [6, 49], [10, 55], [16, 41.2], [19, 41.2], [22, 36.7], [26, 49]];
-    kick.forEach((s) => add(s * step, .45, (t) => .8 * Math.sin(2 * Math.PI * (45 * t + 90 * (1 - Math.exp(-t * 30)) / 30)) * Math.exp(-t * 7)));
-    snare.forEach((s) => add(s * step, .25, (t) => (.35 * rnd() + .25 * Math.sin(2 * Math.PI * 190 * t)) * Math.exp(-t * 18)));
-    for (let s = 0; s < steps; s += 2) {
-      let prev = 0;
-      add(s * step, .06, (t) => { const n = rnd(), v = n - prev; prev = n; return .12 * v * Math.exp(-t * 60); }, s % 4 ? .3 : -.3);
-    }
-    bass.forEach(([s, hz]) => add(s * step, step * 2.5, (t) => {
-      const ph = (hz * t) % 1;
-      return .28 * (2 * Math.abs(2 * ph - 1) - 1) * Math.min(1, t * 200) * Math.exp(-t * 3);
-    }));
-    return buf;
+      await writeCard(files);
+    } finally { prog.hidden = true; }
   }
 
-  function sourceBuffer() {
-    const key = $('source').value;
-    if (key === 'file') return userBuffer;
-    return buffers[key] || (buffers[key] = key === 'boot' ? bootTone() : drumLoop());
-  }
-
-  // ---------- engine ----------
-  async function startEngine() {
-    ctx = new AudioContext({ sampleRate: SR });
-    if (ctx.sampleRate !== SR) status(`Note: browser runs at ${ctx.sampleRate} Hz, the firmware at 48 kHz. Warble timing will be off.`);
-    const [wasm] = await Promise.all([
-      fetch('tape_fx.wasm').then((r) => { if (!r.ok) throw new Error('tape_fx.wasm not found. Run make in playground/.'); return r.arrayBuffer(); }),
-      ctx.audioWorklet.addModule('tape-fx-worklet.js'),
-    ]);
-    node = new AudioWorkletNode(ctx, 'tape-fx', {
+  async function startEngine(name) {
+    if (node) { node.port.postMessage({ type: 'dispose' }); node.disconnect(); node = null; }
+    for (const p of pending.values()) p.reject(new Error('Engine switched.'));
+    pending.clear();
+    engineName = name;
+    $('panel').replaceChildren(el('p', { className: 'panel-empty', textContent: `Booting ${name.toUpperCase()}…` }));
+    status(`Loading ${name.toUpperCase()}…`);
+    const wasm = await fetch(`${name}.wasm`).then((r) => {
+      if (!r.ok) throw new Error(`${name}.wasm not found. Run make in playground/.`);
+      return r.arrayBuffer();
+    });
+    node = new AudioWorkletNode(ctx, 'firmware-engine', {
       numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [2],
-      channelCount: 2, channelCountMode: 'explicit', processorOptions: { wasm },
+      channelCount: 2, channelCountMode: 'explicit', processorOptions: { wasm, prefix: name },
     });
-    await new Promise((resolve, reject) => {
-      node.port.onmessage = (e) => {
-        if (e.data.type === 'ready') resolve();
-        if (e.data.type === 'error') reject(new Error(e.data.message));
-      };
-    });
-    inputBus = ctx.createGain();
-    analyserDry = ctx.createAnalyser(); analyserWet = ctx.createAnalyser();
-    for (const a of [analyserDry, analyserWet]) { a.fftSize = 4096; a.smoothingTimeConstant = .8; }
-    inputBus.connect(node); inputBus.connect(analyserDry);
-    node.connect(analyserWet); node.connect(ctx.destination);
-    for (const id of ['saturate', 'warble', 'filter', 'resonance']) send(id);
-    node.port.postMessage({ type: 'bypass', value: $('fx-off').getAttribute('aria-pressed') === 'true' });
+    node.port.onmessage = (e) => {
+      const m = e.data;
+      if (m.type === 'result') {
+        const p = pending.get(m.id); pending.delete(m.id);
+        if (p) m.error ? p.reject(new Error(m.error)) : p.resolve(m.value);
+      } else if (m.type === 'error') status(`The engine failed to load: ${m.message}`);
+    };
+    inputBus.connect(node);
+    node.connect(master);
+    await ENGINES[name].boot();
+    renderPanel(name);
+    status(`${name.toUpperCase()} running at ${ctx.sampleRate / 1000} kHz. Play the keyboard below.`);
   }
 
-  function startSource() {
-    const buf = sourceBuffer();
-    if (!buf) { status('Load an audio file first.'); return false; }
-    srcNode = new AudioBufferSourceNode(ctx, { buffer: buf, loop: true });
-    srcNode.connect(inputBus);
-    srcNode.start();
-    return true;
-  }
-  function stopSource() { if (srcNode) { srcNode.stop(); srcNode.disconnect(); srcNode = null; } }
+  // ---------------------------------------------------------------- engines
+  // Each control names the firmware call behind it. Values are the panel's
+  // 0–1 encoder positions; defaults are each firmware's ui.h enc_defaults.
+  const ENGINES = {
+    tape: {
+      state: null,
+      async boot() {
+        this.state = { mode: 0, slot: 15, loaded: new Set() };
+        await ask('tape_monitor_mode', 1); // input runs through the FX, as with both outputs selected
+        await ask('tape_input_source', 1); // line in
+      },
+      async selectSlot(slot) {
+        const s = this.state;
+        if (slot !== 15 && s.mode === 0) {
+          const name = `jammi_a${slot}`;
+          if (!s.loaded.has(name)) {
+            await fetchCard('tape', [`${name}.wav`, `${name}_double.wav`], `Sample ${slot}`);
+            s.loaded.add(name);
+            await ask('tape_rescan');
+          }
+        }
+        s.slot = slot;
+        await ask('tape_slot', slot);
+        status(slot === 15 ? 'Tape slot: the RAM buffer, holding the boot tone or your last recording.' : `Slot ${slot} streams from the card.`);
+      },
+      async selectMode(mode) {
+        const s = this.state;
+        s.mode = mode;
+        await ask('tape_voice_mode', mode);
+        if (mode === 1) {
+          if (!s.loaded.has('cubbi')) {
+            const paths = manifest.tape.filter((f) => f.path.startsWith('cubbi_')).map((f) => f.path);
+            await fetchCard('tape', paths, 'CUBBI bank A');
+            s.loaded.add('cubbi');
+            await ask('tape_rescan');
+          }
+          status('CUBBI: each key plays its own slot.');
+        } else await this.selectSlot(s.slot);
+      },
+      note(n, on) { call('tape_note', n, 100, on ? 1 : 0); },
+      set(c, v) { (c.ids || [c.id]).forEach((id) => call('tape_set', id, v)); },
+      modules: [
+        { title: 'Sample', hint: 'FX page 1', extra: 'tapeSlots', controls: [
+          { label: 'Pitch', id: 7, def: .83, src: 'SetGlobalPitchFree · reverse below 0.5' },
+          { label: 'Start', id: 8, def: 0, src: 'SetStartPointForce' },
+          { label: 'End', id: 9, def: 1, src: 'SetEndPointForce' },
+          { label: 'Attack', id: 10, def: 0, src: 'SetAttack' },
+          { label: 'Decay', id: 11, def: 0, src: 'SetDecay' },
+          { label: 'Gain', id: 12, def: .704, src: 'SetGain' },
+        ] },
+        { title: 'FX', hint: 'magic · lofi · filter', controls: [
+          { label: 'Magic', ids: [0, 1], def: 0, src: 'SetReverb + SetDelayFeedback' },
+          { label: 'Delay time', id: 2, def: .5, src: 'SetDelayTime' },
+          { label: 'Saturate', id: 3, def: 0, src: 'SetSaturate' },
+          { label: 'Warble', id: 4, def: 0, src: 'SetWarble' },
+          { label: 'Filter', id: 5, def: .5, src: 'SetFilter · low-pass ← 0.5 → high-pass' },
+          { label: 'Resonance', id: 6, def: 0, src: 'SetFilterResonance' },
+        ] },
+        { title: 'Looper', hint: 'tape looper', extra: 'tapeLooper', controls: [
+          { label: 'Looper pitch', id: 14, def: .75, src: 'SetLooperPitchFree · 1× at 0.75' },
+          { label: 'Main volume', id: 15, def: .84, src: 'SetMainGain' },
+        ] },
+      ],
+    },
 
-  $('play').addEventListener('click', async () => {
-    try {
-      if (!ctx) { status('Loading the firmware DSP…'); await startEngine(); }
-      await ctx.resume();
-      if (playing) { stopSource(); playing = false; }
-      else { playing = startSource(); }
-      $('play').textContent = playing ? 'Stop' : 'Play';
-      if (playing) status(`Running tape_fx.wasm at ${ctx.sampleRate / 1000} kHz.`);
-    } catch (err) {
-      status(`Could not start audio: ${err.message}`);
-    }
-  });
+    wave: {
+      async boot() {
+        await fetchCard('wave', manifest.wave.map((f) => f.path), 'Wavetables');
+        const n = await ask('wave_boot');
+        status(`${n} wavetables loaded by the firmware's own loader.`);
+      },
+      note(n, on) { call('wave_note', n, on ? 1 : 0); },
+      set(c, v) { call('wave_set', c.id, v); },
+      modules: [
+        { title: 'Oscillator', hint: 'wavetable', extra: 'waveTables', controls: [
+          { label: 'Cycle', id: 1, def: 0, src: 'setCycle · 33 waves per table' },
+          { label: 'Pitch', id: 0, def: .5, src: 'setGlobalPitch · ±1 octave' },
+          { label: 'Attack', id: 2, def: 0, src: 'setAttack' },
+          { label: 'Release', id: 3, def: 0, src: 'setRelease' },
+          { label: 'Gain', id: 12, def: .84, src: 'setGain' },
+        ] },
+        { title: 'Filter', hint: 'per voice', controls: [
+          { label: 'Cutoff', id: 8, def: .5, src: 'setMasterCutoff' },
+          { label: 'Resonance', id: 9, def: .63, src: 'setMasterResonance' },
+          { label: 'Filter LFO', id: 5, def: 0, src: 'setLfoDepth' },
+          { label: 'Filter LFO rate', id: 7, def: .58, src: 'setLfoRate' },
+          { label: 'Pitch LFO', id: 4, def: 0, src: 'setPitchLfoDepth' },
+          { label: 'Pitch LFO rate', id: 6, def: .58, src: 'setPitchLfoRate' },
+        ] },
+        { title: 'Magic', hint: 'delay ← 0.5 → reverb', controls: [
+          { label: 'Delay / reverb', id: 10, def: .5, src: 'setDelayFeedback' },
+          { label: 'Time', id: 11, def: .4, src: 'setDelayTime' },
+          { label: 'Drive', id: 14, def: 0, src: 'setFinalComp' },
+        ] },
+      ],
+    },
 
-  $('source').addEventListener('change', () => { if (playing) { stopSource(); playing = startSource(); } });
-
-  $('file').addEventListener('change', async (e) => {
-    const f = e.target.files[0];
-    if (!f) return;
-    try {
-      const tmp = ctx || new OfflineAudioContext(2, 1, SR);
-      userBuffer = await tmp.decodeAudioData(await f.arrayBuffer());
-      const opt = $('source').querySelector('option[value="file"]');
-      opt.disabled = false; opt.textContent = f.name;
-      $('source').value = 'file';
-      status(`Loaded ${f.name}. Press Play.`);
-      if (playing) { stopSource(); playing = startSource(); }
-    } catch (err) {
-      status(`Could not decode ${f.name}. Try a WAV or MP3.`);
-    }
-  });
-
-  // ---------- controls ----------
-  const DEFAULTS = { saturate: 0, warble: 0, filter: .5, resonance: 0 }; // ui.h enc_defaults + MenuPage reset
-
-  function paint(id) {
-    const el = $(id), v = +el.value;
-    $(id + '-out').value = v.toFixed(2);
-    el.style.setProperty('--pct', (v * 100) + '%');
-    const led = el.dataset.led;
-    if (led) {
-      const [r, g, b] = xfade3(LED[led], v);
-      const c = `rgb(${r} ${g} ${b})`;
-      $(led + '-led').style.setProperty('--led', c);
-      el.style.setProperty('--fill', c);
-    }
-  }
-  function send(id) { if (node) node.port.postMessage({ type: id, value: +$(id).value }); }
-  for (const id of Object.keys(DEFAULTS)) {
-    $(id).addEventListener('input', () => { paint(id); send(id); });
-    paint(id);
-  }
-  $('wand').addEventListener('click', () => {
-    for (const [id, v] of Object.entries(DEFAULTS)) { $(id).value = v; paint(id); send(id); }
-  });
-
-  const setBypass = (on) => {
-    $('fx-on').setAttribute('aria-pressed', String(!on));
-    $('fx-off').setAttribute('aria-pressed', String(on));
-    if (node) node.port.postMessage({ type: 'bypass', value: on });
+    tempo: {
+      state: null,
+      async boot() {
+        this.state = { eng: 0 };
+        await fetchCard('tempo', manifest.tempo.map((f) => f.path), 'TEMPO card');
+        await ask('tempo_boot');
+      },
+      note(n, on) { call('tempo_note', n, on ? 1 : 0); },
+      set(c, v) {
+        if (c.id === 'clock') call('tempo_tempo', Math.round(v));
+        else call('tempo_set', this.state.eng, c.id, v);
+      },
+      modules: [
+        { title: 'Pattern', hint: 'arpeggiator', extra: 'tempoPattern', controls: [
+          { label: 'Clock', id: 'clock', def: 320, min: 160, max: 480, step: 1, src: 'clockManager::setTempo · firmware units, default 320' },
+          { label: 'Randomness', id: 26, def: 0, src: 'setRandomness' },
+        ] },
+        { title: 'Sample', hint: 'selected engine', extra: 'tempoSlots', controls: [
+          { label: 'Pitch', id: 0, def: .83, src: 'setGlobalPitchFree · reverse below 0.5' },
+          { label: 'Start', id: 1, def: 0, src: 'setStartPoint' },
+          { label: 'End', id: 2, def: 1, src: 'setEndPoint' },
+          { label: 'Attack', id: 3, def: 0, src: 'setAttack' },
+          { label: 'Release', id: 4, def: 0, src: 'setRelease' },
+          { label: 'Volume', id: 9, def: .6, src: 'setSampleVolume' },
+          { label: 'Cutoff', id: 5, def: .5, src: 'setMasterCutoff' },
+          { label: 'Bit reduce', id: 8, def: 0, src: 'setSampleReducer' },
+        ] },
+        { title: 'Granular delay', hint: 'magic', extra: 'tempoFreeze', controls: [
+          { label: 'Delay', id: 20, def: .5, src: 'setGranularMain' },
+          { label: 'Alt', id: 21, def: 0, src: 'setGranularAlt' },
+          { label: 'Mix', id: 22, def: .5, src: 'setGranularMix' },
+          { label: 'Feedback', id: 23, def: 0, src: 'setGranularFeedback' },
+        ] },
+      ],
+    },
   };
-  $('fx-on').addEventListener('click', () => setBypass(false));
-  $('fx-off').addEventListener('click', () => setBypass(true));
 
-  // ---------- spectrum ----------
+  // ---------------------------------------------------------------- panel
+  const field = (label, ...kids) => el('div', { className: 'field' }, el('span', { className: 'field-label', textContent: label }), ...kids);
+  const note = (text) => el('p', { className: 'ctl-src', textContent: text });
+
+  function chipRow(labels, pressed, onPick) {
+    const row = el('div', { className: 'chips' });
+    labels.forEach((label, i) => {
+      const b = el('button', { type: 'button', className: 'chip', textContent: label });
+      b.setAttribute('aria-pressed', String(i === pressed));
+      b.addEventListener('click', async () => {
+        [...row.children].forEach((c) => c.setAttribute('aria-pressed', 'false'));
+        b.setAttribute('aria-pressed', 'true'); b.classList.add('loading');
+        try { await onPick(i); } catch (err) { status(err.message); }
+        b.classList.remove('loading');
+      });
+      row.append(b);
+    });
+    return row;
+  }
+  // A panel button: the firmware sees the press and the release.
+  function holdButton(label, onDown, onUp, cls = '') {
+    const b = el('button', { type: 'button', className: `hold ${cls}`, textContent: label });
+    const down = (e) => { e.preventDefault(); if (b.dataset.state === 'on') return; b.dataset.state = 'on'; onDown(); };
+    const up = () => { if (b.dataset.state === 'on') { b.dataset.state = ''; onUp(); } };
+    b.addEventListener('pointerdown', down);
+    b.addEventListener('pointerup', up);
+    b.addEventListener('pointercancel', up);
+    b.addEventListener('pointerleave', up);
+    b.addEventListener('keydown', (e) => { if ((e.key === ' ' || e.key === 'Enter') && !e.repeat) down(e); });
+    b.addEventListener('keyup', (e) => { if (e.key === ' ' || e.key === 'Enter') up(); });
+    return b;
+  }
+  const lamp = (text, cls = '') => el('span', { className: `lamp ${cls}`, textContent: text });
+  let lamps = null;
+
+  const EXTRAS = {
+    tapeSlots(eng) {
+      const slots = [...Array(14)].map((_, i) => String(i + 1)).concat('Tape');
+      return [
+        field('Voice mode', chipRow(['JAMMI', 'CUBBI'], 0, (i) => eng.selectMode(i))),
+        field('Slot · bank A', chipRow(slots, 14, (i) => eng.selectSlot(i === 14 ? 15 : i + 1))),
+        el('div', { className: 'btn-row' },
+          holdButton('Hold to sample the input', () => call('tape_record', 1), () => call('tape_record', 0), 'rec')),
+        note('StartNewRecording / StopRecording write the audio input into the Tape slot.'),
+      ];
+    },
+    tapeLooper() {
+      lamps = { kind: 'tape', play: lamp('playing'), rec: lamp('recording', 'rec'), arm: lamp('armed', 'rec') };
+      return [
+        el('div', { className: 'btn-row' },
+          holdButton('Record', () => call('tape_looper_record', 1), () => call('tape_looper_record', 0), 'rec'),
+          holdButton('Play', () => call('tape_looper_play', 1), () => call('tape_looper_play', 0))),
+        el('div', { className: 'btn-row' }, lamps.rec, lamps.play, lamps.arm),
+        note('LooperRecordButton / LooperPlayButton. The looper records the input and the keys.'),
+      ];
+    },
+    waveTables() {
+      return [
+        field('Table', chipRow(['1', '2', '3', '4', '5', '6', '7'], 0, (i) => call('wave_table', i))),
+        el('div', { className: 'btn-row' },
+          el('button', { type: 'button', className: 'chip', textContent: 'Engine oct −', onclick: () => call('wave_octave', -1) }),
+          el('button', { type: 'button', className: 'chip', textContent: 'Engine oct +', onclick: () => call('wave_octave', 1) })),
+      ];
+    },
+    tempoPattern(eng) {
+      lamps = { kind: 'tempo', play: lamp('playing'), latch: lamp('looping') };
+      return [
+        el('div', { className: 'btn-row' },
+          holdButton('Play', () => call('tempo_play', 1), () => call('tempo_play', 0)),
+          holdButton('Loop', () => call('tempo_latch', 1), () => call('tempo_latch', 0)), lamps.play, lamps.latch),
+        field('Pattern', chipRow(['Sequence', 'Up', 'Down', 'Up-down', 'Random'], 0, (i) => call('tempo_pattern', eng.state.eng, i))),
+        field('Rests', chipRow(['None', 'Last', '2nd last', 'Middle', 'First only'], 0, (i) => call('tempo_rest_mode', eng.state.eng, i))),
+        note('Press Play, then hold a few keys: the arpeggiator steps through them on the clock.'),
+      ];
+    },
+    tempoSlots(eng) {
+      return [
+        field('Engine', chipRow(['Chromatic', 'Slice'], 0, (i) => { eng.state.eng = i; call('tempo_engine', i); })),
+        field('Sample slot', chipRow([...Array(14)].map((_, i) => String(i + 1)).concat('Buffer'), 14, (i) => call('tempo_sample', eng.state.eng, i))),
+      ];
+    },
+    tempoFreeze() {
+      return [el('div', { className: 'btn-row' },
+        el('button', { type: 'button', className: 'chip', textContent: 'Freeze', onclick: () => call('tempo_freeze') }))];
+    },
+  };
+
+  function control(eng, c) {
+    const id = `ctl-${engineName}-${c.label.toLowerCase().replace(/\W+/g, '-')}`;
+    const min = c.min ?? 0, max = c.max ?? 1, step = c.step ?? 0.001;
+    const input = el('input', { type: 'range', id, min, max, step, value: c.def });
+    const out = el('output', { htmlFor: id });
+    const paint = () => {
+      const v = +input.value;
+      out.value = step >= 1 ? String(v) : v.toFixed(2);
+      input.style.setProperty('--pct', ((v - min) / (max - min) * 100) + '%');
+    };
+    input.addEventListener('input', () => { paint(); eng.set(c, +input.value); });
+    paint();
+    eng.set(c, c.def);
+    return el('div', { className: 'ctl' },
+      el('div', { className: 'ctl-top' }, el('label', { htmlFor: id, textContent: c.label }), out),
+      input, el('div', { className: 'ctl-src', textContent: c.src }));
+  }
+
+  function renderPanel(name) {
+    const eng = ENGINES[name], panel = $('panel');
+    lamps = null;
+    panel.replaceChildren(...eng.modules.map((m) => el('section', { className: 'mod' },
+      el('div', { className: 'mod-head' }, el('h2', { textContent: m.title.toUpperCase() }), el('span', { className: 'mod-hint', textContent: m.hint })),
+      ...(m.extra ? EXTRAS[m.extra](eng) : []),
+      ...m.controls.map((c) => control(eng, c)))));
+    panel.setAttribute('aria-labelledby', `tab-${name}`);
+  }
+
+  // Lamps follow engine state.
+  setInterval(async () => {
+    if (!node || !lamps) return;
+    try {
+      if (lamps.kind === 'tape') {
+        const s = await ask('tape_looper_state');
+        lamps.play.dataset.on = String(!!(s & 1));
+        lamps.rec.dataset.on = String(!!(s & 2));
+        lamps.arm.dataset.on = String(!!(s & 4));
+      } else if (lamps.kind === 'tempo') {
+        const e = await ask('tempo_get_engine');
+        lamps.play.dataset.on = String(!!(await ask('tempo_playing', e)));
+        lamps.latch.dataset.on = String(!!(await ask('tempo_latched')));
+      }
+    } catch { /* engine is switching */ }
+  }, 150);
+
+  // ---------------------------------------------------------------- tabs
+  async function selectEngine(name) {
+    for (const n of Object.keys(ENGINES)) $(`tab-${n}`).setAttribute('aria-selected', String(n === name));
+    engineName = name;
+    if (!ctx) {
+      $('panel').replaceChildren(el('p', { className: 'panel-empty', textContent: `Press Start audio to boot ${name.toUpperCase()}.` }));
+      return;
+    }
+    const run = (booting || Promise.resolve()).catch(() => {}).then(() => startEngine(name));
+    booting = run;
+    try { await run; } catch (err) { status(err.message); }
+  }
+  for (const name of Object.keys(ENGINES)) $(`tab-${name}`).addEventListener('click', () => selectEngine(name));
+
+  // ---------------------------------------------------------------- audio
+  let fileBuffer = null, fileSource = null, micStream = null, micSource = null;
+  async function routeInput() {
+    if (fileSource) { fileSource.stop(); fileSource.disconnect(); fileSource = null; }
+    if (micSource) { micSource.disconnect(); micSource = null; }
+    const v = $('input').value;
+    if (!ctx) return;
+    if (v === 'file' && fileBuffer) {
+      fileSource = new AudioBufferSourceNode(ctx, { buffer: fileBuffer, loop: true });
+      fileSource.connect(inputBus); fileSource.start();
+    } else if (v === 'mic') {
+      try {
+        micStream = micStream || await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
+        micSource = ctx.createMediaStreamSource(micStream); micSource.connect(inputBus);
+      } catch { status('The browser did not allow the microphone. Load an audio file instead.'); $('input').value = 'none'; }
+    }
+  }
+  $('input').addEventListener('change', routeInput);
+  $('file').addEventListener('change', async (e) => {
+    const f = e.target.files[0]; if (!f) return;
+    try {
+      fileBuffer = await (ctx || new OfflineAudioContext(2, 1, SR)).decodeAudioData(await f.arrayBuffer());
+      const opt = $('input').querySelector('option[value="file"]');
+      opt.disabled = false; opt.textContent = f.name; $('input').value = 'file';
+      status(`${f.name} feeds the engine's audio input. In TAPE it runs through the FX and into the looper.`);
+      routeInput();
+    } catch { status(`Could not decode ${f.name}. Try a WAV or MP3.`); }
+  });
+  $('volume').addEventListener('input', () => { if (master) master.gain.value = +$('volume').value * 2; });
+
+  $('power').addEventListener('click', async () => {
+    if (ctx) {
+      if (ctx.state === 'running') { await ctx.suspend(); $('power').textContent = 'Resume audio'; status('Audio paused.'); }
+      else { await ctx.resume(); $('power').textContent = 'Pause audio'; status(`${engineName.toUpperCase()} running.`); }
+      return;
+    }
+    try {
+      ctx = new AudioContext({ sampleRate: SR, latencyHint: 'interactive' });
+      master = ctx.createGain(); master.gain.value = +$('volume').value * 2;
+      analyser = ctx.createAnalyser(); analyser.fftSize = 4096; analyser.smoothingTimeConstant = .8;
+      inputBus = ctx.createGain();
+      master.connect(analyser); master.connect(ctx.destination);
+      const [m] = await Promise.all([
+        fetch('card/manifest.json').then((r) => { if (!r.ok) throw new Error('card/manifest.json is missing. Run make in playground/.'); return r.json(); }),
+        ctx.audioWorklet.addModule('engine-worklet.js'),
+      ]);
+      manifest = m;
+      await ctx.resume();
+      $('power').textContent = 'Pause audio';
+      await selectEngine(engineName);
+      routeInput();
+      if (ctx.sampleRate !== SR) status(`The browser runs at ${ctx.sampleRate} Hz; the firmware expects 48 kHz, so pitch and timing will be off.`);
+    } catch (err) { status(`Could not start: ${err.message}`); if (ctx) ctx.close(); ctx = null; $('power').textContent = 'Start audio'; }
+  });
+
+  // ---------------------------------------------------------------- keyboard
+  let octave = 0;
+  const held = new Set();
+  const keysEl = $('keys');
+  const LOW = 48, HIGH = 72; // C3–C5 on screen
+  const isBlack = (n) => [1, 3, 6, 8, 10].includes(n % 12);
+  const whites = [...Array(HIGH - LOW + 1)].map((_, i) => LOW + i).filter((n) => !isBlack(n));
+  const keyEls = new Map();
+  whites.forEach((n) => { const k = el('div', { className: 'key', textContent: n % 12 === 0 ? `C${n / 12 - 1}` : '' }); k.dataset.n = n; keysEl.append(k); keyEls.set(n, k); });
+  for (let n = LOW; n <= HIGH; n++) {
+    if (!isBlack(n)) continue;
+    const left = whites.indexOf(n - 1);
+    const k = el('div', { className: 'key black' }); k.dataset.n = n;
+    k.style.left = `${(left + 1 - 0.3) / whites.length * 100}%`;
+    k.style.width = `${0.6 / whites.length * 100}%`;
+    keysEl.append(k); keyEls.set(n, k);
+  }
+  const keyFor = (n) => keyEls.get(n - octave * 12);
+  const noteOn = (n) => {
+    if (held.has(n)) return; held.add(n);
+    keyFor(n)?.classList.add('down');
+    if (node) ENGINES[engineName].note(n, true);
+  };
+  const noteOff = (n) => {
+    if (!held.delete(n)) return;
+    keyFor(n)?.classList.remove('down');
+    if (node) ENGINES[engineName].note(n, false);
+  };
+  const pointerNotes = new Map();
+  keysEl.addEventListener('pointerdown', (e) => {
+    const k = e.target.closest('.key'); if (!k) return;
+    keysEl.setPointerCapture(e.pointerId);
+    const n = +k.dataset.n + octave * 12; pointerNotes.set(e.pointerId, n); noteOn(n);
+  });
+  keysEl.addEventListener('pointermove', (e) => {
+    if (!pointerNotes.has(e.pointerId)) return;
+    const k = document.elementFromPoint(e.clientX, e.clientY)?.closest('.key'); if (!k) return;
+    const n = +k.dataset.n + octave * 12, prev = pointerNotes.get(e.pointerId);
+    if (n !== prev) { noteOff(prev); pointerNotes.set(e.pointerId, n); noteOn(n); }
+  });
+  const endPointer = (e) => { if (pointerNotes.has(e.pointerId)) { noteOff(pointerNotes.get(e.pointerId)); pointerNotes.delete(e.pointerId); } };
+  keysEl.addEventListener('pointerup', endPointer);
+  keysEl.addEventListener('pointercancel', endPointer);
+
+  const KEYMAP = { a: 0, w: 1, s: 2, e: 3, d: 4, f: 5, t: 6, g: 7, y: 8, h: 9, u: 10, j: 11, k: 12 };
+  const shiftOctave = (d) => { [...held].forEach(noteOff); octave = Math.max(-2, Math.min(2, octave + d)); status(`Keyboard octave ${octave >= 0 ? '+' : ''}${octave}.`); };
+  window.addEventListener('keydown', (e) => {
+    if (e.repeat || e.metaKey || e.ctrlKey || e.altKey || e.target.matches('input, select, textarea')) return;
+    const k = e.key.toLowerCase();
+    if (k === 'z') return shiftOctave(-1);
+    if (k === 'x') return shiftOctave(1);
+    if (k in KEYMAP) noteOn(60 + KEYMAP[k] + octave * 12);
+  });
+  window.addEventListener('keyup', (e) => { const k = e.key.toLowerCase(); if (k in KEYMAP) noteOff(60 + KEYMAP[k] + octave * 12); });
+  window.addEventListener('blur', () => [...held].forEach(noteOff));
+  $('oct-down').addEventListener('click', () => shiftOctave(-1));
+  $('oct-up').addEventListener('click', () => shiftOctave(1));
+
+  // Web MIDI in, where the browser allows it.
+  if (navigator.requestMIDIAccess) {
+    navigator.requestMIDIAccess().then((midi) => {
+      const hook = () => {
+        midi.inputs.forEach((i) => { i.onmidimessage = (m) => {
+          const [st, n, v] = m.data, cmd = st & 0xf0;
+          if (cmd === 0x90 && v > 0) noteOn(n);
+          else if (cmd === 0x80 || (cmd === 0x90 && v === 0)) noteOff(n);
+        }; });
+        $('midi-lamp').dataset.on = String(midi.inputs.size > 0);
+      };
+      hook(); midi.onstatechange = hook;
+    }).catch(() => {});
+  }
+
+  // ---------------------------------------------------------------- spectrum
   const canvas = $('scope'), g = canvas.getContext('2d');
   const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-  let dryBins, wetBins;
+  let bins;
   function draw() {
     const dpr = window.devicePixelRatio || 1;
     const w = Math.round(canvas.clientWidth * dpr), h = Math.round(canvas.clientHeight * dpr);
@@ -397,28 +687,22 @@ footer p { margin: 0; }
     g.fillStyle = css('--scope-bg'); g.fillRect(0, 0, w, h);
     const fMin = 30, fMax = 20000, x = (f) => w * Math.log(f / fMin) / Math.log(fMax / fMin);
     g.strokeStyle = css('--scope-grid'); g.lineWidth = 1;
-    for (const f of [100, 1000, 10000]) { g.beginPath(); g.moveTo(x(f), 0); g.lineTo(x(f), h); g.stroke(); }
-    g.fillStyle = css('--scope-dry'); g.font = `${11 * dpr}px ${css('--font-mono')}`;
-    for (const [f, t] of [[100, '100'], [1000, '1k'], [10000, '10k']]) g.fillText(t, x(f) + 4 * dpr, h - 6 * dpr);
-    if (analyserDry) {
-      dryBins = dryBins || new Float32Array(analyserDry.frequencyBinCount);
-      wetBins = wetBins || new Float32Array(analyserWet.frequencyBinCount);
-      analyserDry.getFloatFrequencyData(dryBins);
-      analyserWet.getFloatFrequencyData(wetBins);
-      const trace = (bins, color, width) => {
-        g.strokeStyle = color; g.lineWidth = width * dpr; g.beginPath();
-        const binHz = ctx.sampleRate / analyserDry.fftSize;
-        let started = false;
-        for (let px = 0; px <= w; px += 2) {
-          const f = fMin * Math.pow(fMax / fMin, px / w);
-          const db = bins[Math.min(bins.length - 1, Math.round(f / binHz))];
-          const y = h * (1 - (Math.max(-110, Math.min(-10, db)) + 110) / 100);
-          started ? g.lineTo(px, y) : (g.moveTo(px, y), started = true);
-        }
-        g.stroke();
-      };
-      trace(dryBins, css('--scope-dry'), 1);
-      trace(wetBins, css('--scope-wet'), 1.75);
+    g.fillStyle = css('--scope-text'); g.font = `${11 * dpr}px ${css('--font-mono')}`;
+    for (const [f, t] of [[100, '100'], [1000, '1k'], [10000, '10k']]) {
+      g.beginPath(); g.moveTo(x(f), 0); g.lineTo(x(f), h); g.stroke(); g.fillText(t, x(f) + 4 * dpr, h - 6 * dpr);
+    }
+    if (analyser) {
+      bins = bins || new Float32Array(analyser.frequencyBinCount);
+      analyser.getFloatFrequencyData(bins);
+      const binHz = ctx.sampleRate / analyser.fftSize;
+      g.strokeStyle = css('--scope-wet'); g.lineWidth = 1.75 * dpr; g.beginPath();
+      for (let px = 0; px <= w; px += 2) {
+        const f = fMin * Math.pow(fMax / fMin, px / w);
+        const db = bins[Math.min(bins.length - 1, Math.round(f / binHz))];
+        const y = h * (1 - (Math.max(-120, Math.min(-20, db)) + 120) / 100);
+        px ? g.lineTo(px, y) : g.moveTo(px, y);
+      }
+      g.stroke();
     }
     requestAnimationFrame(draw);
   }

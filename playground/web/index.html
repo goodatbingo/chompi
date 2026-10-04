@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>TAPE FX Playground</title>
+<title>Tape Bench</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Syne:wght@600;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
@@ -136,8 +136,8 @@ footer p { margin: 0; }
 <body>
 <div class="wrap">
   <header>
-    <div class="eyebrow">CHOMPI · TAPE 2.0 firmware · running in your browser</div>
-    <h1>TAPE FX Playground</h1>
+    <div class="eyebrow">TAPE 2.0 firmware DSP · running in your browser</div>
+    <h1>Tape Bench</h1>
     <p class="lede">The filter, saturation and wow/flutter here are the firmware's own C++ (<code>DJFilter.h</code>, <code>Warble.h</code>, DaisySP's <code>SoftClip</code>) compiled to WebAssembly at 48&nbsp;kHz. Edit the firmware, run <code>make</code>, reload, and hear the change before you flash.</p>
   </header>
 
@@ -203,6 +203,8 @@ footer p { margin: 0; }
   <footer>
     <h3>What runs here</h3>
     <p>The page loads <code>tape_fx.wasm</code> into an AudioWorklet. Per sample it runs the first loop of <code>DSPEngine::ApplyFx()</code>: DC block, DJ filter, soft-clip saturation with gain compensation, then warble. Knob values go through the firmware's own mappings, and the LEDs use the panel's colour fades. Delay and reverb are not included yet.</p>
+    <h3>About</h3>
+    <p>An unofficial community tool built from the MIT-licensed open-source firmware release. It is not affiliated with or endorsed by the hardware's makers.</p>
     <h3>Try a firmware tweak</h3>
     <p>Change something in <code>firmware/chompi-tape/code/src/Warble.h</code> (for example the <code>880.f</code> depth), then run <code>make</code> in <code>playground/</code> and reload this page.</p>
   </footer>

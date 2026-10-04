@@ -1,4 +1,4 @@
-// CHOMPI playground: TAPE "lofi" + "filter" FX stage, compiled to WebAssembly.
+// Tape Bench: TAPE "lofi" + "filter" FX stage, compiled to WebAssembly.
 //
 // The DSP blocks below are the firmware's own headers, included straight out of
 // firmware/chompi-tape/code/src. Edit DJFilter.h, Warble.h, BasicMMF.h (or the

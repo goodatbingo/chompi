@@ -1,4 +1,4 @@
-# TAPE FX Playground
+# Tape Bench
 
 Hear a firmware tweak before you flash it. This folder compiles TAPE's filter,
 saturation and wow/flutter code to WebAssembly and runs it in the browser with
@@ -8,6 +8,10 @@ The DSP is **the firmware's own source**, included straight from
 `firmware/chompi-tape/code/src`: `DJFilter.h`, `BasicMMF.h`, `Warble.h`, plus
 DaisySP's `SoftClip`, `DcBlock` and `DelayLine`. Change one of those files,
 rebuild, reload the page, and you hear the changed code.
+
+Tape Bench is an unofficial community tool. It is built from the
+MIT-licensed firmware in this repo and is not affiliated with or endorsed by
+the hardware's makers.
 
 ## Try it
 
@@ -25,6 +29,13 @@ audio file), press **Play**, and move the knobs. **FX / Bypass** switches
 between the processed and dry signal without a gap, so you can A/B a change.
 **Magic wand reset** puts the knobs back where the panel's encoder-press reset
 puts them.
+
+## GitHub Pages
+
+`.github/workflows/pages.yml` rebuilds the wasm from the firmware source,
+checks it matches the committed copy, runs the smoke test, and publishes
+`web/` to GitHub Pages on every push to `main`. To turn it on for a fork, go
+to **Settings → Pages** and set **Source** to **GitHub Actions**.
 
 ## Change the firmware and listen
 

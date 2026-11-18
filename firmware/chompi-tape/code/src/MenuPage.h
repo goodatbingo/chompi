@@ -3,6 +3,10 @@
 #include "temp_led_stuff.h"
 #include "FileCopier.h"
 
+// Control-rate code (main loop only): build for size, not speed, to free SRAM_EXEC.
+#pragma GCC push_options
+#pragma GCC optimize("Os")
+
 namespace chompi
 {
     class MenuPage : public daisy::UiPage
@@ -1140,3 +1144,5 @@ namespace chompi
         PresetMode preset_mode = PresetMode::NONE;
     };
 } // namespace chompi
+
+#pragma GCC pop_options

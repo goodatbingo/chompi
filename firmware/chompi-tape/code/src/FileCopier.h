@@ -3,6 +3,10 @@
 #include "fatfs.h"
 #include "FileStreamingManager.h"
 
+// Control-rate code (main loop only): build for size, not speed, to free SRAM_EXEC.
+#pragma GCC push_options
+#pragma GCC optimize("Os")
+
 namespace daisy {
 
 class FileCopier
@@ -433,3 +437,5 @@ class FileCopier
         Engine* fx_;
 };
 } // namespace daisy
+
+#pragma GCC pop_options

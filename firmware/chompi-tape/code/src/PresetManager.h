@@ -2,6 +2,10 @@
 #include "FileStreamingManager.h"
 #include "core_json.h"
 
+// Control-rate code (main loop only): build for size, not speed, to free SRAM_EXEC.
+#pragma GCC push_options
+#pragma GCC optimize("Os")
+
 #define PRE_VERSION "2"
 
 namespace chompi {
@@ -313,3 +317,5 @@ class PresetManager
         const float* defaults_;
 };
 } // namespace chompi
+
+#pragma GCC pop_options

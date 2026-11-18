@@ -2,6 +2,10 @@
 #include "FileStreamingManager.h"
 #include "core_json.h"
 
+// Control-rate code (main loop only): build for size, not speed, to free SRAM_EXEC.
+#pragma GCC push_options
+#pragma GCC optimize("Os")
+
 #define OPT_VERSION "1"
 
 namespace chompi {
@@ -237,3 +241,5 @@ class OptionsManager
         char opt_file[kOptFileSize];
 };
 } // namespace chompi
+
+#pragma GCC pop_options

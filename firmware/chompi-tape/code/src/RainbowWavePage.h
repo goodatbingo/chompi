@@ -2,6 +2,10 @@
 #include "DSPEngine.h"
 #include "temp_led_stuff.h"
 
+// Control-rate code (main loop only): build for size, not speed, to free SRAM_EXEC.
+#pragma GCC push_options
+#pragma GCC optimize("Os")
+
 namespace chompi
 {
     class RainbowPage : public daisy::UiPage
@@ -174,3 +178,5 @@ namespace chompi
         bool blink;
     };
 } // namespace chompi
+
+#pragma GCC pop_options

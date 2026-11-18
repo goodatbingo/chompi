@@ -5,6 +5,10 @@
 #include "temp_led_stuff.h"
 #include "FileCopier.h"
 
+// Control-rate code (main loop only): build for size, not speed, to free SRAM_EXEC.
+#pragma GCC push_options
+#pragma GCC optimize("Os")
+
 namespace chompi
 {
         static const uint8_t cc_map[3][6] = {
@@ -1080,3 +1084,5 @@ namespace chompi
     };
 
 } // namespace chompi
+
+#pragma GCC pop_options

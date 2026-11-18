@@ -29,6 +29,29 @@ code/bms_test/            standalone battery-management bring-up example
 bin/                      bootloader binary and install script
 ```
 
+## Extending the FX chain
+
+The effects chain lives in `code/src/FxChain.h`:
+
+```
+fade -> dc block -> DJ filter -> saturation -> warble -> [transform] -> delay -> reverb
+```
+
+`code/src/Transforms.h` defines two extension points for new sound-transforming
+processes (inspired by the offline, "darkroom" style of Argeïphontes Lyre):
+
+- **`FxTransform`**: a real-time stage that runs in the audio callback, once per block. Install
+  one with `engine.SetFxTransform(&t)`, or pass `nullptr` to bypass it. It sits ahead of the
+  delay and reverb, so their tails carry the transformed sound. The stage is empty by default,
+  and an empty chain sounds exactly as before.
+- **`BackgroundJob`**: a slow, chunked process that the main loop steps with
+  `engine.ProcessBackgroundJob()`, for work too heavy for real time, such as rewriting a whole
+  SDRAM buffer. Start one with `engine.StartBackgroundJob(&job)`. Each `Step()` should do a
+  bounded amount of work and return quickly.
+
+The UI pages, file copier and options/preset parsers are built with `-Os` (via
+`#pragma GCC optimize`) to free executable SRAM for new features. Audio-rate code stays at `-O3`.
+
 ## SD card layout
 
 The card holds the firmware binary, the sample banks, and two JSON files: `options.json`

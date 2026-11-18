@@ -7,19 +7,15 @@
 #include "SampleReader.h"
 #include "LooperEngine.h"
 #include "daisysp.h"
-#include "DJFilter.h"
-#include "Warble.h"
 #include "PresetManager.h"
 #include "EnvFollower.h"
 #include "MicFilter.h"
-#include "reverb.h"
 #include "RamBuffer.h"
 #include "limiter.h"
-#include "InterpolatedDelayLine.h"
+#include "FxChain.h"
 #include <algorithm>
 
 using namespace daisy;
-static constexpr size_t kMaxDelayTime = 48128 * 2; // stereo, > 1 seconds at 48kHz
 
 static constexpr float kLineOutGain = .3f;
 static constexpr float kHpGain = .2f;
@@ -159,43 +155,20 @@ namespace daisy
             for (size_t i = 0; i < size_t(VoiceMode::LAST); i++)
                 bank[i] = 0;
 
-            reverb_ = reverb;
-
-            reverb_->Init(samplerate);
-            reverb_->SetAmount(0.f);
-            reverb_->SetInputGain(.3f);
-            reverb_->SetLowpass(1.f);
-
-            del_.Init(del, kMaxDelayTime);
-            del_.SetDelay(kMaxDelayTime * .5f);
-
-            SetDelayTime(.5f);
-            dly_time_ = dly_time_target_;
+            fx_.Init(samplerate, reverb, del);
 
             mic_filter_.Init(samplerate);
 
-            filter_.Init(samplerate);
-            filter_.SetControl(.5f);
-            cutoff_target_ = .5f;
-            res_ = res_target_ = 0.f;
-
-            SetSaturate(0.f);
-
             mgain_ = mgain_target_ = .8f;
 
-            warble_.Init(samplerate);
-            warble_.SetFreq(.1f);
-            
             dcblock_mic_in_.Init(samplerate);
             dcblock_line_in_l_.Init(samplerate);
             dcblock_line_in_r_.Init(samplerate);
-            dcblock_fx_l_.Init(samplerate);
-            dcblock_fx_r_.Init(samplerate);
 
             file_manager.Init(samplerate);
 
             fx_pre_loop = true;
-            fx_env_ = fx_env_target_ = 1.f;
+            background_job_ = nullptr;
             final_lim_ = 0.f;
 
             resamp_env_ = resamp_env_target_ = 1.f;
@@ -267,88 +240,8 @@ namespace daisy
             }
         }
 
-        void ApplyFx(float* outl, float* outr, size_t size)
-        {
-            for(size_t i = 0; i < size; i++)
-            {
-                // slew controls at audio rate
-                fonepole(cutoff_, cutoff_target_, .001f);
-                fonepole(res_, res_target_, .001f);
-                fonepole(saturate_amt_, saturate_amt_target_, .001f);
+        inline void ApplyFx(float* outl, float* outr, size_t size) { fx_.Process(outl, outr, size); }
 
-                // input gain
-                fonepole(fx_env_, fx_env_target_, .001f);
-                outl[i] *= fx_env_;
-                outr[i] *= fx_env_;
-
-                filter_.SetControl(cutoff_);
-                filter_.SetRes(res_);
-
-                outl[i] = dcblock_fx_l_.Process(outl[i]);
-                outr[i] = dcblock_fx_r_.Process(outr[i]);
-
-                // filter
-                filter_.Process(outl[i], outr[i], &outl[i], &outr[i]);
-
-                // then clip
-                outl[i] = daisysp::SoftClip(saturate_amt_ * outl[i]); 
-                outr[i] = daisysp::SoftClip(saturate_amt_ * outr[i]); 
-
-                // reduce amplitude to prevent LUFs from blowing up
-                const float gain = 1.f - daisysp::SoftClip(.4f * (saturate_amt_ - 1.f)) * .7f;
-                outl[i] *= gain;
-                outr[i] *= gain;
-
-                // wow and flutter
-                warble_.Process(outl[i], outr[i], &outl[i], &outr[i]);
-            }
-
-            // delay, in its own block to optimize SDRAM access
-            for(size_t i = 0; i < size; i++)
-            {
-                // fonepole and set controls
-                // dly_amt_ is a duplicate of reverb_amt_, but we want to fonepole it in this loop
-                fonepole(dly_feedback_, dly_feedback_target_, .001f);
-                fonepole(dly_time_, dly_time_target_, .001f);
-                fonepole(dly_amt_, dly_amt_target_, .001f); 
-                del_.SetDelay(dly_time_); 
-
-                // read
-                const float del_vol = dly_feedback_ < .2f ? dly_feedback_ * 5.f : 1.f;
-                InterpolatedDelayLine::AudioSample del_read = del_.Read();
-                const float delsig_l = s162f(del_read.l) * del_vol;
-                const float delsig_r = s162f(del_read.r) * del_vol;
-
-                // write
-                const float mono_sum = (outl[i] + outr[i]) * .5f;
-                const float del_in = mono_sum + delsig_r * powf(dly_feedback_, .7f);
-                const InterpolatedDelayLine::AudioSample del_write = {int16_t(f2s16(del_in)), int16_t(f2s16(delsig_l))};
-                del_.Write(del_write);
-
-                // dry/wet mix
-                const float wet_mix = dly_feedback_ > .25f ? .5f : 2.f * dly_feedback_; // quickly to 50%
-                const float dry_mix = dly_feedback_ > .83f ? .5f : (1 - .6f * dly_feedback_); // slowly to 50%
-
-                outl[i] = outl[i] * dry_mix + delsig_l * wet_mix;
-                outr[i] = outr[i] * dry_mix + delsig_r * wet_mix;
-            }
-
-            // reverb, in its own block to optimize SDRAM access
-            for(size_t i = 0; i < size; i++)
-            {
-                // fonepole and set controls
-                fonepole(reverb_amt_, reverb_amt_target_, .001f);
-                fonepole(reverb_time_, reverb_time_target_, .001f);
-                reverb_->SetAmount(reverb_amt_ * reverb_amt_ * .8f);
-                reverb_->SetTime(reverb_time_);
-                reverb_->SetLowpass(reverb_amt_ * .6f + .4f);
-                reverb_->SetDiffusion(reverb_amt_ * .6f);
-
-                reverb_->Process(&outl[i], &outr[i]);
-            }
-        }
-
-        /** Apply the total monitor signal to the input envelope follower */
         void ApplyEnvelopeFollower(size_t size, float* monitor)
         {
             for (size_t i = 0; i < size; i++)
@@ -474,10 +367,10 @@ namespace daisy
             if(!fx_pre_loop)
                 ApplyFx(out[0], out[1], size);
 
-            if(fx_env_ < .01f)
+            if(fx_.IsFadedOut())
             {
                 fx_pre_loop = !fx_pre_loop;
-                fx_env_target_ = 1.f;
+                fx_.FadeIn();
             }
 
             //working space (HP) copy to line out
@@ -1138,25 +1031,29 @@ namespace daisy
         inline void SetFinalComp(float comp) { final_lim_target_ = comp; }
         inline float GetFinalComp() { return final_lim_target_; }
 
-        inline void SetReverb(float val) { dly_amt_target_ = reverb_amt_target_ = 1.3f * logf(val + 1.f); }
-        inline void SetDelayFeedback(float val) { dly_feedback_target_ = val * .9f; }
-        inline void SetDelayTime(float val) {
-            dly_time_target_ = .99f * powf(val, 3.f) * kMaxDelayTime + 450;
+        inline void SetReverb(float val) { fx_.SetReverb(val); }
+        inline void SetDelayFeedback(float val) { fx_.SetDelayFeedback(val); }
+        inline void SetDelayTime(float val) { fx_.SetDelayTime(val); }
 
-            reverb_time_target_ = val;
-            reverb_time_target_ = fclamp(reverb_time_target_, .05, .97);
-        }
+        inline void SetWarble(float val) { fx_.SetWarble(val); }
 
-        inline void SetWarble(float val) { warble_.SetFreq(val); }
+        inline void SetFilter(float val) { fx_.SetFilter(val); }
+        inline void SetFilterResonance(float val) { fx_.SetFilterResonance(val); }
+        inline void SetSaturate(float val) { fx_.SetSaturate(val); }
 
-        inline void SetFilter(float val) { cutoff_target_ = val; }
-        inline void SetFilterResonance(float val) { res_target_ = val; }
-        inline void SetSaturate(float val) 
-        { 
-            val = logf(1.7f * val + 1.f); 
-            saturate_amt_target_ = val * 13.f + 1.f; 
-            // saturate_amt_target_ *= .5f; 
-        
+        /** Install a real-time transform in the FX chain (nullptr bypasses it). */
+        inline void SetFxTransform(FxTransform* t) { fx_.SetTransform(t); }
+
+        /** Start a chunked offline job, stepped from the main loop by
+         *  ProcessBackgroundJob(). Replaces any job already running. */
+        inline void StartBackgroundJob(BackgroundJob* job) { background_job_ = job; }
+        inline bool BackgroundJobRunning() const { return background_job_ != nullptr; }
+
+        /** Call from the main loop, never from the audio callback. */
+        void ProcessBackgroundJob()
+        {
+            if(background_job_ != nullptr && background_job_->Step())
+                background_job_ = nullptr;
         }
 
         inline bool GetLooperRecordArm() { return looper.GetRecordArm(); }
@@ -1499,7 +1396,7 @@ namespace daisy
             if(pre != fx_pre_loop)
             {
                 looper.FXEnvelope();
-                fx_env_target_ = 0.f;
+                fx_.FadeOut();
             }
         }
 
@@ -1574,30 +1471,18 @@ namespace daisy
         float final_lim_, final_lim_target_;
 
         /** FX */
+        FxChain fx_;
+        BackgroundJob* background_job_;
+
+        /** Input conditioning */
         MicFilter mic_filter_;
-        DjFilter filter_;
-        daisysp::Reverb* reverb_;
-        chompi::InterpolatedDelayLine del_;
-        Warble warble_;
         daisysp::DcBlock dcblock_mic_in_;
         daisysp::DcBlock dcblock_line_in_l_;
         daisysp::DcBlock dcblock_line_in_r_;
-        daisysp::DcBlock dcblock_fx_l_;
-        daisysp::DcBlock dcblock_fx_r_;
 
         size_t latest_voice;
 
-        float dly_time_, dly_time_target_;
-        float dly_feedback_, dly_feedback_target_;
-        float reverb_amt_, reverb_amt_target_;
-        float reverb_time_, reverb_time_target_;
-        float dly_amt_, dly_amt_target_;
-        float saturate_amt_, saturate_amt_target_;
-        float cutoff_, cutoff_target_;
-        float res_, res_target_;
-        
         bool fx_pre_loop;
-        float fx_env_, fx_env_target_;
 
         int bank[int(VoiceMode::LAST)];
 

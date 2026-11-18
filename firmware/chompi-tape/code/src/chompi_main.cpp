@@ -242,6 +242,9 @@ void MainLoop(void* data)
         pre_startt = now;
     }
 
+    // one chunk of any offline transform (no-op when none is running)
+    engine.ProcessBackgroundJob();
+
     // update now to actually be now
     now = daisy::System::GetNow();
 
